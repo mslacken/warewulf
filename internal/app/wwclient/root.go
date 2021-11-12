@@ -28,6 +28,7 @@ var (
 	}
 	DebugFlag bool
 	PIDFile   string
+	Webclient *http.Client
 )
 
 func init() {
@@ -49,7 +50,7 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 	}
 
 	if util.IsFile(PIDFile) {
-		return errors.New("wwclient is already running")
+		return errors.New("found pidfile " + PIDFile + " not starting")
 	}
 	p, err := os.OpenFile(PIDFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -63,6 +64,7 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		err := os.Chdir("/")
 		if err != nil {
 			wwlog.Printf(wwlog.ERROR, "failed to change dir: %s", err)
+			_ = os.Remove(PIDFile)
 			os.Exit(1)
 		}
 		log.Printf("Updating live file system LIVE, cancel now if this is in error")
@@ -93,7 +95,7 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		fmt.Printf("INFO: Running from an insecure port\n")
 	}
 
-	webclient := &http.Client{
+	Webclient = &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
@@ -110,19 +112,16 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 	// listen on SIGHUP
 	sigs := make(chan os.Signal)
 
-	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
 		for sig := range sigs {
 			switch sig {
 			case syscall.SIGHUP:
 				log.Printf("Received SIGNAL: %s\n", sig)
-				updateSystem(webclient, conf.Ipaddr, conf.Warewulf.Port)
-			case syscall.SIGTERM:
-				err = os.Remove(PIDFile)
-				if err != nil {
-					errors.New("could not remove pidfile")
-				}
+				updateSystem(conf.Ipaddr, conf.Warewulf.Port)
+			case syscall.SIGTERM, syscall.SIGINT:
+				cleanUp()
 				os.Exit(0)
 			}
 		}
@@ -130,7 +129,7 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 
 	for {
 
-		updateSystem(webclient, conf.Ipaddr, conf.Warewulf.Port)
+		updateSystem(conf.Ipaddr, conf.Warewulf.Port)
 
 		if conf.Warewulf.UpdateInterval > 0 {
 			time.Sleep(time.Duration(conf.Warewulf.UpdateInterval*1000) * time.Millisecond)
@@ -140,13 +139,13 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func updateSystem(webclient *http.Client, ipaddr string, port int) {
+func updateSystem(ipaddr string, port int) {
 	var resp *http.Response
 	counter := 0
 	for {
 		var err error
 		getString := fmt.Sprintf("http://%s:%d/overlay-runtime", ipaddr, port)
-		resp, err = webclient.Get(getString)
+		resp, err = Webclient.Get(getString)
 		if err == nil {
 			break
 		} else {
@@ -172,4 +171,13 @@ func updateSystem(webclient *http.Client, ipaddr string, port int) {
 	if err != nil {
 		log.Printf("ERROR: Failed running CPIO: %s\n", err)
 	}
+}
+
+func cleanUp() {
+	err := os.Remove(PIDFile)
+	if err != nil {
+		errors.New("could not remove pidfile")
+	}
+
+	Webclient.CloseIdleConnections()
 }
