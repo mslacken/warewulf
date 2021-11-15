@@ -270,6 +270,16 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 
 			} else if b, _ := regexp.MatchString(`\.ww[a-zA-Z0-9\-\._]*$`, location); b {
 				wwlog.Printf(wwlog.DEBUG, "Ignoring WW template file: %s\n", location)
+			} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+				wwlog.Printf(wwlog.DEBUG, "Found symlink %s\n", location)
+				destination, err := os.Readlink(path.Join(OverlayDir, location))
+				if err != nil {
+					wwlog.Printf(wwlog.ERROR, "%s\n", err)
+				}
+				err = os.Symlink(destination, path.Join(tmpDir, location))
+				if err != nil {
+					wwlog.Printf(wwlog.ERROR, "%s\n", err)
+				}
 			} else {
 				wwlog.Printf(wwlog.DEBUG, "Found file: %s\n", location)
 
