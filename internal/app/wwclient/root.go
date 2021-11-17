@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hpcng/warewulf/internal/pkg/util"
+	"github.com/hpcng/warewulf/internal/pkg/pidfile"
 	"github.com/hpcng/warewulf/internal/pkg/warewulfconf"
 	"github.com/hpcng/warewulf/internal/pkg/wwlog"
 	"github.com/spf13/cobra"
@@ -49,16 +49,12 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if util.IsFile(PIDFile) {
+	pid, err := pidfile.Write(PIDFile)
+	if err != nil && pid == -1 {
+		wwlog.Printf(wwlog.WARN, "%v. starting new wwclient", err)
+	} else if err != nil && pid > 0 {
 		return errors.New("found pidfile " + PIDFile + " not starting")
 	}
-	p, err := os.OpenFile(PIDFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer p.Close()
-
-	fmt.Fprintf(p, "%d", os.Getpid())
 
 	if os.Args[0] == "/warewulf/bin/wwclient" {
 		err := os.Chdir("/")
@@ -110,20 +106,20 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		},
 	}
 	// listen on SIGHUP
-	sigs := make(chan os.Signal)
+	sigs := make(chan os.Signal, 1)
 
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
-		for sig := range sigs {
-			switch sig {
-			case syscall.SIGHUP:
-				log.Printf("Received SIGNAL: %s\n", sig)
-				updateSystem(conf.Ipaddr, conf.Warewulf.Port)
-			case syscall.SIGTERM, syscall.SIGINT:
-				cleanUp()
-				os.Exit(0)
-			}
+		sig := <-sigs
+		switch sig {
+		case syscall.SIGHUP:
+			log.Printf("Received SIGNAL: %s\n", sig)
+			updateSystem(conf.Ipaddr, conf.Warewulf.Port)
+		case syscall.SIGTERM, syscall.SIGINT:
+			wwlog.Printf(wwlog.INFO, "termination wwclient!, %v", sig)
+			cleanUp()
+			os.Exit(0)
 		}
 	}()
 
@@ -174,9 +170,8 @@ func updateSystem(ipaddr string, port int) {
 }
 
 func cleanUp() {
-	err := os.Remove(PIDFile)
+	err := pidfile.Remove(PIDFile)
 	if err != nil {
-		log.Printf("could not remove pidfile: %s\n", err)
+		wwlog.Printf(wwlog.ERROR, "could not remove pidfile: %s\n", err)
 	}
-
 }
