@@ -14,6 +14,7 @@ type ControllerConf struct {
 	Network       string        `yaml:"network,omitempty"`
 	Fqdn          string        `yaml:"fqdn,omitempty"`
 	LocalStateDir string        `yaml:"localstatedir"`
+	CasyncDir     string        `yaml:casyncdir`
 	Warewulf      *WarewulfConf `yaml:"warewulf"`
 	Dhcp          *DhcpConf     `yaml:"dhcp"`
 	Tftp          *TftpConf     `yaml:"tftp"`

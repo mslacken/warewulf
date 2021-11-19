@@ -10,6 +10,7 @@ import (
 )
 
 var LocalStateDir = "/var/warewulf"
+var CasyncDirBase string
 
 func init() {
 	conf, err := warewulfconf.New()
@@ -20,8 +21,13 @@ func init() {
 	if conf.LocalStateDir != "" {
 		LocalStateDir = conf.LocalStateDir
 	}
+	if conf.CasyncDir == "" {
+		CasyncDirBase = LocalStateDir
+	}
 }
-
+func CasyncDir() string {
+	return path.Join(LocalStateDir, "casync")
+}
 func OverlayDir() string {
 	return fmt.Sprintf("%s/overlays/", LocalStateDir)
 }
