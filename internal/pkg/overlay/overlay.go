@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -210,7 +211,7 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 		if err != nil {
 			return err
 		}
-
+		var fileList []string
 		wwlog.Printf(wwlog.DEBUG, "Walking the file system: %s\n", OverlayDir)
 		err = filepath.Walk(".", func(location string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -267,7 +268,7 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 				if err != nil {
 					return err
 				}
-
+				fileList = append(fileList, destFile)
 			} else if b, _ := regexp.MatchString(`\.ww[a-zA-Z0-9\-\._]*$`, location); b {
 				wwlog.Printf(wwlog.DEBUG, "Ignoring WW template file: %s\n", location)
 			} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {
@@ -280,6 +281,7 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 				if err != nil {
 					wwlog.Printf(wwlog.ERROR, "%s\n", err)
 				}
+				fileList = append(fileList, destination)
 			} else {
 				wwlog.Printf(wwlog.DEBUG, "Found file: %s\n", location)
 
@@ -288,6 +290,7 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 					wwlog.Printf(wwlog.ERROR, "%s\n", err)
 					return err
 				}
+				fileList = append(fileList, location)
 			}
 
 			return nil
@@ -300,6 +303,23 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 			wwlog.Printf(wwlog.ERROR, "Error with filepath walk: %s\n", err)
 			os.Exit(1)
 		}
+		err = os.MkdirAll(path.Join(tmpDir, "warewulf"), 0755)
+
+		if err != nil {
+			return errors.Wrap(err, "Could not create warewulf dir")
+		}
+
+		fileListfl, err := os.Create(path.Join(tmpDir, "warewulf/fileList"))
+		if err != nil {
+			return errors.Wrap(err, "could node create fileList")
+		}
+		defer fileListfl.Close()
+		writer := bufio.NewWriter(fileListfl)
+		for _, line := range fileList {
+			fmt.Fprintln(writer, line)
+		}
+		writer.Flush()
+		fileListfl.Close()
 
 		wwlog.Printf(wwlog.DEBUG, "Finished generating overlay directory for: %s\n", n.Id.Get())
 
