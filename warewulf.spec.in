@@ -20,6 +20,7 @@ Conflicts: warewulf-provision
 Conflicts: warewulf-ipmi
 
 BuildRequires: make
+BuildRequires: dracut
 
 %if 0%{?rhel}
 BuildRequires: systemd
@@ -80,6 +81,7 @@ getent group %{wwgroup} >/dev/null || groupadd -r %{wwgroup}
 %config(noreplace) %{_sysconfdir}/%{name}/*
 %config(noreplace) %attr(0640,-,-) %{_sysconfdir}/%{name}/nodes.conf
 %{_sysconfdir}/bash_completion.d/warewulf
+%{_prefix}/lib/dracut/modules.d/50ww-hybrid
 
 %dir %{wwshared}/%{name}
 %{wwshared}/%{name}/overlays/runtime/*

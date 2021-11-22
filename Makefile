@@ -85,6 +85,7 @@ files: all
 	install -d -m 0755 $(DESTDIR)/var/lib/tftpboot/warewulf/ipxe/
 	install -d -m 0755 $(DESTDIR)/etc/bash_completion.d/
 	install -d -m 0755 $(DESTDIR)/usr/share/man/man1
+	install -d -m 0755 $(DESTDIR)/usr/lib/dracut/modules.d/
 	test -f $(DESTDIR)/etc/warewulf/warewulf.conf || install -m 644 etc/warewulf.conf $(DESTDIR)/etc/warewulf/
 	test -f $(DESTDIR)/etc/warewulf/hosts.tmpl || install -m 644 etc/hosts.tmpl $(DESTDIR)/etc/warewulf/
 	test -f $(DESTDIR)/etc/warewulf/nodes.conf || install -m 640 etc/nodes.conf $(DESTDIR)/etc/warewulf/
@@ -103,6 +104,7 @@ files: all
 	install -c -m 0644 include/systemd/warewulfd.service $(DESTDIR)/usr/lib/systemd/system
 	cp etc/bash_completion.d/warewulf $(DESTDIR)/etc/bash_completion.d/
 	cp usr/share/man/man1/* $(DESTDIR)/usr/share/man/man1/
+	cp -r include/modules.d/50ww-hybrid $(DESTDIR)/usr/lib/dracut/modules.d/
 
 init:
 	systemctl daemon-reload
