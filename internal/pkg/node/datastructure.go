@@ -32,6 +32,7 @@ type NodeConf struct {
 	SystemOverlay  string              `yaml:"system overlay,omitempty"`
 	Init           string              `yaml:"init,omitempty"`
 	Root           string              `yaml:"root,omitempty"`
+	DeviceConf     string              `yaml:"deviceconf,omitempty"`
 	Discoverable   bool                `yaml:"discoverable,omitempty"`
 	Profiles       []string            `yaml:"profiles,omitempty"`
 	NetDevs        map[string]*NetDevs `yaml:"network devices,omitempty"`
@@ -81,6 +82,7 @@ type NodeInfo struct {
 	RuntimeOverlay Entry
 	SystemOverlay  Entry
 	Root           Entry
+	DeviceConf     Entry
 	Discoverable   Entry
 	Init           Entry //TODO: Finish adding this...
 	Profiles       []string

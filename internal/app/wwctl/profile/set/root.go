@@ -60,6 +60,7 @@ var (
 	SetUndiscoverable bool
 	SetInit           string
 	SetRoot           string
+	SetDeviceConf     string
 	SetKey            string
 	SetValue          string
 	SetKeyDel         bool
@@ -86,6 +87,7 @@ func init() {
 	baseCmd.PersistentFlags().StringVarP(&SetIpxe, "ipxe", "P", "", "Set the node's iPXE template name")
 	baseCmd.PersistentFlags().StringVarP(&SetInit, "init", "i", "", "Define the init process to boot the container")
 	baseCmd.PersistentFlags().StringVar(&SetRoot, "root", "", "Define the rootfs")
+	baseCmd.PersistentFlags().StringVar(&SetDeviceConf, "deviceconf", "d", "Device configuration file")
 
 	baseCmd.PersistentFlags().StringVarP(&SetRuntimeOverlay, "runtime", "R", "", "Set the node's runtime overlay")
 	if err := baseCmd.RegisterFlagCompletionFunc("runtime", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

@@ -28,6 +28,7 @@ type TemplateStruct struct {
 	Container     string
 	Init          string
 	Root          string
+	DeviceConf    string
 	IpmiIpaddr    string
 	IpmiNetmask   string
 	IpmiPort      string
@@ -149,6 +150,7 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 		t.Container = n.ContainerName.Get()
 		t.Init = n.Init.Get()
 		t.Root = n.Root.Get()
+		t.DeviceConf = n.DeviceConf.Get()
 		t.IpmiIpaddr = n.IpmiIpaddr.Get()
 		t.IpmiNetmask = n.IpmiNetmask.Get()
 		t.IpmiPort = n.IpmiPort.Get()
@@ -303,24 +305,25 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 			wwlog.Printf(wwlog.ERROR, "Error with filepath walk: %s\n", err)
 			os.Exit(1)
 		}
-		err = os.MkdirAll(path.Join(tmpDir, "warewulf"), 0755)
+		if overlayType == "system" {
+			err = os.MkdirAll(path.Join(tmpDir, "warewulf"), 0755)
 
-		if err != nil {
-			return errors.Wrap(err, "Could not create warewulf dir")
-		}
+			if err != nil {
+				return errors.Wrap(err, "Could not create warewulf dir")
+			}
 
-		fileListfl, err := os.Create(path.Join(tmpDir, "warewulf/fileList"))
-		if err != nil {
-			return errors.Wrap(err, "could node create fileList")
+			fileListfl, err := os.Create(path.Join(tmpDir, "warewulf/fileList"))
+			if err != nil {
+				return errors.Wrap(err, "could node create fileList")
+			}
+			defer fileListfl.Close()
+			writer := bufio.NewWriter(fileListfl)
+			for _, line := range fileList {
+				fmt.Fprintln(writer, line)
+			}
+			writer.Flush()
+			fileListfl.Close()
 		}
-		defer fileListfl.Close()
-		writer := bufio.NewWriter(fileListfl)
-		for _, line := range fileList {
-			fmt.Fprintln(writer, line)
-		}
-		writer.Flush()
-		fileListfl.Close()
-
 		wwlog.Printf(wwlog.DEBUG, "Finished generating overlay directory for: %s\n", n.Id.Get())
 
 		compressor, err := exec.LookPath("pigz")

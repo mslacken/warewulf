@@ -69,6 +69,10 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 			wwlog.Printf(wwlog.VERBOSE, "Profile: %s, Setting root to: %s\n", p.Id.Get(), SetRoot)
 			p.Root.Set(SetRoot)
 		}
+		if SetDeviceConf != "" {
+			wwlog.Printf(wwlog.VERBOSE, "Profile: %s, Setting deviceconf to: %s\n", p.Id.Get(), SetDeviceConf)
+			p.DeviceConf.Set(SetDeviceConf)
+		}
 
 		if SetKernel != "" {
 			wwlog.Printf(wwlog.VERBOSE, "Profile: %s, Setting Kernel to: %s\n", p.Id.Get(), SetKernel)
