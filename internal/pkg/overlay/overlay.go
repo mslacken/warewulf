@@ -323,6 +323,9 @@ func buildOverlay(nodeList []node.NodeInfo, overlayType string) error {
 			}
 			writer.Flush()
 			fileListfl.Close()
+			if n.DeviceConf.Get() != "" {
+				wwlog.Printf(wwlog.DEBUG, "Creating deviceconf for: %s\n", n.Id.Get())
+			}
 		}
 		wwlog.Printf(wwlog.DEBUG, "Finished generating overlay directory for: %s\n", n.Id.Get())
 
