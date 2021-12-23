@@ -34,8 +34,7 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&DebugFlag, "debug", "d", false, "Run with debugging messages enabled.")
-	rootCmd.PersistentFlags().StringVarP(&PIDFile, "pidfile", "p", "/var/run/wwclient.pid", "PIDFile to use")
-
+	rootCmd.PersistentFlags().StringVarP(&PIDFile, "pidfile", "p", "/run/wwclient.pid", "PIDFile to use")
 }
 
 // GetRootCommand returns the root cobra.Command for the application.
