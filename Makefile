@@ -53,7 +53,7 @@ export GOPROXY
 # built tags needed for wwbuild binary
 WW_BUILD_GO_BUILD_TAGS := containers_image_openpgp containers_image_ostree
 
-all: config vendor wwctl wwclient bash_completion.d man_pages
+all: config vendor wwctl wwclient bash_completion.d man_pages wwapid wwapic wwapird
 
 build: lint test-it vet all
 
@@ -149,6 +149,10 @@ files: all
 	install -d -m 0755 $(DESTDIR)$(SYSTEMDDIR)
 	test -f $(DESTDIR)$(SYSCONFDIR)/warewulf/warewulf.conf || install -m 644 etc/warewulf.conf $(DESTDIR)$(SYSCONFDIR)/warewulf/
 	test -f $(DESTDIR)$(SYSCONFDIR)/warewulf/nodes.conf || install -m 644 etc/nodes.conf $(DESTDIR)$(SYSCONFDIR)/warewulf/
+	test -f $(DESTDIR)$(SYSCONFDIR)/warewulf/wwapic.conf || install -m 644 etc/wwapic.conf $(DESTDIR)$(SYSCONFDIR)/warewulf/
+	test -f $(DESTDIR)$(SYSCONFDIR)/warewulf/wwapid.conf || install -m 644 etc/wwapid.conf $(DESTDIR)$(SYSCONFDIR)/warewulf/
+	test -f $(DESTDIR)$(SYSCONFDIR)/warewulf/wwapird.conf || install -m 644 etc/wwapird.conf $(DESTDIR)$(SYSCONFDIR)/warewulf/
+
 	cp -r etc/examples $(DESTDIR)$(SYSCONFDIR)/warewulf/
 	cp -r etc/ipxe $(DESTDIR)$(SYSCONFDIR)/warewulf/
 	cp -r overlays/* $(DESTDIR)$(WWOVERLAYDIR)/
@@ -157,6 +161,9 @@ files: all
 	chmod 600 $(DESTDIR)$(WWOVERLAYDIR)/wwinit/etc/ssh/ssh*
 	chmod 644 $(DESTDIR)$(WWOVERLAYDIR)/wwinit/etc/ssh/ssh*.pub.ww
 	install -m 0755 wwctl $(DESTDIR)$(BINDIR)
+	install -m 0755 wwapic $(DESTDIR)$(BINDIR)
+	install -m 0755 wwapid $(DESTDIR)$(BINDIR)
+	install -m 0755 wwapird $(DESTDIR)$(BINDIR)
 	install -c -m 0644 include/firewalld/warewulf.xml $(DESTDIR)$(FIREWALLDDIR)
 	install -c -m 0644 include/systemd/warewulfd.service $(DESTDIR)$(SYSTEMDDIR)
 	cp bash_completion.d/warewulf $(DESTDIR)$(BASH_COMPLETION)
@@ -231,13 +238,13 @@ proto: ## wwapi generate code from protobuf. Not under make all. Requires protoc
 		routes.proto
 
 wwapid: ## Build the grpc api server. TODO: not under make all.
-	go build -race -ldflags "-s -w" -o ./wwapid internal/app/api/wwapid/wwapid.go
+	go build -o ./wwapid internal/app/api/wwapid/wwapid.go
 
 wwapic: ## Build the sample wwapi client. TODO: not under make all.
-	go build -race -ldflags "-s -w" -o ./wwapic  internal/app/api/wwapic/wwapic.go
+	go build -o ./wwapic  internal/app/api/wwapic/wwapic.go
 
 wwapird: ## Build the rest api server (revese proxy to the grpc api server). TODO: Not under make all.
-	go build -race -ldflags "-s -w" -o ./wwapird internal/app/api/wwapird/wwapird.go
+	go build -o ./wwapird internal/app/api/wwapird/wwapird.go
 
 # TODO: Need service installers for wwapid, wwapird.
 
