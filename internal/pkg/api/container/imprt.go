@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 
@@ -57,7 +58,8 @@ func ContainerImport(cip *wwapiv1.ContainerImportParameter) (containerName strin
 			return
 		}
 	} else if strings.HasPrefix(cip.Source, "docker://") || strings.HasPrefix(cip.Source, "docker-daemon://") ||
-		strings.HasPrefix(cip.Source, "file://") || util.IsFile(cip.Source) {
+		(strings.HasPrefix(cip.Source, "file://") &&
+			(strings.HasSuffix(cip.Source, "tar") || strings.HasSuffix(cip.Source, ".tar.gz"))) || util.IsFile(cip.Source) {
 		var sCtx *types.SystemContext
 		sCtx, err = getSystemContext()
 		if err != nil {
@@ -66,6 +68,25 @@ func ContainerImport(cip *wwapiv1.ContainerImportParameter) (containerName strin
 		}
 
 		err = container.ImportDocker(cip.Source, cip.Name, sCtx)
+		if err != nil {
+			err = fmt.Errorf("could not import image: %s", err.Error())
+			wwlog.Error(err.Error())
+			_ = container.DeleteSource(cip.Name)
+			return
+		}
+	} else if strings.HasPrefix(cip.Source, "qcow://") || strings.HasPrefix(cip.Source, "raw://") || strings.HasPrefix(cip.Source, "image://") {
+		realPath := cip.Source
+		for _, prefix := range []string{"qcow://", "image://", "raw://"} {
+			realPath = strings.TrimPrefix(realPath, prefix)
+		}
+		fmt.Println("realPath", realPath)
+		var cpyOut string
+		cpyOut, err = exec.LookPath("guestfish")
+		if err != nil {
+			wwlog.ErrorExc(err, "could not locate 'virt-copy-out' needed for image import (install libguestfs)")
+			return
+		}
+		err = container.ImportImage(realPath, cip.Name, cpyOut)
 		if err != nil {
 			err = fmt.Errorf("could not import image: %s", err.Error())
 			wwlog.Error(err.Error())
