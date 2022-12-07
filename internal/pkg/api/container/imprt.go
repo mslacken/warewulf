@@ -79,7 +79,6 @@ func ContainerImport(cip *wwapiv1.ContainerImportParameter) (containerName strin
 		for _, prefix := range []string{"qcow://", "image://", "raw://"} {
 			realPath = strings.TrimPrefix(realPath, prefix)
 		}
-		fmt.Println("realPath", realPath)
 		var cpyOut string
 		cpyOut, err = exec.LookPath("guestfish")
 		if err != nil {
@@ -93,6 +92,7 @@ func ContainerImport(cip *wwapiv1.ContainerImportParameter) (containerName strin
 			_ = container.DeleteSource(cip.Name)
 			return
 		}
+		RemoveDir(cip.Name, []string{".snapshots", "lost+found"})
 	} else if util.IsDir(cip.Source) {
 		err = container.ImportDirectory(cip.Source, cip.Name)
 		if err != nil {
