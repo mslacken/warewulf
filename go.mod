@@ -1,5 +1,9 @@
 module github.com/hpcng/warewulf
 
+replace libguestfs.org/guestfs => ./external/libguestfs.org/guestfs
+
+require libguestfs.org/guestfs v1.0.0
+
 go 1.16
 
 require (
