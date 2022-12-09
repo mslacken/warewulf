@@ -79,14 +79,16 @@ func ContainerImport(cip *wwapiv1.ContainerImportParameter) (containerName strin
 			realPath = strings.TrimPrefix(realPath, prefix)
 		}
 
-		err = container.ImportImage(realPath, cip.Name)
+		err = container.ImportImage(realPath, cip.Name, []string{".snapshots", "lost+found"})
 		if err != nil {
 			err = fmt.Errorf("could not import image: %s", err.Error())
 			wwlog.Error(err.Error())
 			_ = container.DeleteSource(cip.Name)
 			return
 		}
-		RemoveDir(cip.Name, []string{".snapshots", "lost+found"})
+		/*
+			RemoveDir(cip.Name, []string{".snapshots", "lost+found"})
+		*/
 	} else if util.IsDir(cip.Source) {
 		err = container.ImportDirectory(cip.Source, cip.Name)
 		if err != nil {
