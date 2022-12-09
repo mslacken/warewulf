@@ -110,7 +110,12 @@ func ImportImageGuestFish(uri string, name string, cpyOutPth string) error {
 /*
 Import a image with GOC bindings of libc
 */
-func ImportImage(uri string, name string) error {
+func ImportImage(uri string, name string, exclDir []string) error {
+	fullPath := RootFsDir(name)
+	err := os.MkdirAll(fullPath, 0755)
+	if err != nil {
+		return err
+	}
 	gh, err := guestfs.Create()
 	if err != nil {
 		return fmt.Errorf("could not create binding to libguestfs: %s", err)
@@ -122,7 +127,7 @@ func ImportImage(uri string, name string) error {
 		Readonly:        true,
 	}
 	if err := gh.Add_drive(uri, &optargs); err != nil {
-		return fmt.Errorf("Could not add image %s as root drive: %s", uri, err)
+		return fmt.Errorf("could not add image %s as root drive: %s", uri, err)
 	}
 
 	/* Run the libguestfs back-end. */
@@ -132,7 +137,7 @@ func ImportImage(uri string, name string) error {
 	if err != nil {
 		return fmt.Errorf("could not create handle to libguestfs: %s", err)
 	}
-	// serach root drives in the image
+	// search root drives in the image
 	roots, err := gh.Inspect_os()
 	if err != nil {
 		return fmt.Errorf("error at os detection: %s", err)
@@ -140,5 +145,31 @@ func ImportImage(uri string, name string) error {
 	if len(roots) == 0 {
 		return fmt.Errorf("function ImportImage: no operating systems found")
 	}
+	// only use the first root found
+	wwlog.Verbose("using %s as root device for copy out\n", roots[0])
+	err = gh.Mount(roots[0], "/")
+	if err != nil {
+		return fmt.Errorf("could not mount root fs: %s", err)
+	}
+	dirList, err := gh.Ls("/")
+	if err != nil {
+		panic("inspect-vm: could not list root dir")
+	}
+	for _, dir := range dirList {
+		for _, eDir := range exclDir {
+			if dir == eDir {
+				wwlog.Verbose("ignoring directory %s\n", eDir)
+				continue
+			}
+			wwlog.Verbose("copy out directroy %s", dir)
+			err = gh.Copy_out(dir, fullPath)
+			if err != nil {
+				return fmt.Errorf("could not copy out %s: %s", dir, err)
+			}
+
+		}
+	}
+	gh.Umount_all()
+	gh.Close()
 	return nil
 }

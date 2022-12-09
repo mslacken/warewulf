@@ -2,8 +2,6 @@ module github.com/hpcng/warewulf
 
 replace libguestfs.org/guestfs => ./external/libguestfs.org/guestfs
 
-require libguestfs.org/guestfs v1.0.0
-
 go 1.16
 
 require (
@@ -30,4 +28,5 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
+	libguestfs.org/guestfs v1.0.0
 )
