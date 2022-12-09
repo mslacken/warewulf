@@ -3,7 +3,6 @@ package container
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
@@ -79,13 +78,8 @@ func ContainerImport(cip *wwapiv1.ContainerImportParameter) (containerName strin
 		for _, prefix := range []string{"qcow://", "image://", "raw://"} {
 			realPath = strings.TrimPrefix(realPath, prefix)
 		}
-		var cpyOut string
-		cpyOut, err = exec.LookPath("guestfish")
-		if err != nil {
-			wwlog.ErrorExc(err, "could not locate 'virt-copy-out' needed for image import (install libguestfs)")
-			return
-		}
-		err = container.ImportImage(realPath, cip.Name, cpyOut)
+
+		err = container.ImportImage(realPath, cip.Name)
 		if err != nil {
 			err = fmt.Errorf("could not import image: %s", err.Error())
 			wwlog.Error(err.Error())
