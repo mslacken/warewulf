@@ -156,17 +156,14 @@ func ImportImage(uri string, name string, exclDir []string) error {
 		panic("inspect-vm: could not list root dir")
 	}
 	for _, dir := range dirList {
-		for _, eDir := range exclDir {
-			if dir == eDir {
-				wwlog.Verbose("ignoring directory %s\n", eDir)
-				continue
-			}
-			wwlog.Verbose("copy out directroy %s", dir)
-			err = gh.Copy_out(dir, fullPath)
-			if err != nil {
-				return fmt.Errorf("could not copy out %s: %s", dir, err)
-			}
-
+		if util.InSlice(exclDir, dir) {
+			wwlog.Verbose("ignoring dir %s", dir)
+			continue
+		}
+		wwlog.Verbose("copy out directroy %s", dir)
+		err = gh.Copy_out("/"+dir, fullPath)
+		if err != nil {
+			return fmt.Errorf("could not copy out %s: %s", dir, err)
 		}
 	}
 	gh.Umount_all()
