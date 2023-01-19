@@ -43,7 +43,7 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		}
 		err = syscall.Mount(containerPath, containerPath, "", syscall.MS_REMOUNT|syscall.MS_RDONLY|syscall.MS_BIND, "")
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to remount ro"))
+			return errors.Wrap(err, fmt.Sprintf("failed to remount %s as ro", containerPath))
 		}
 	}
 
@@ -64,11 +64,15 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		} else {
 			dest = bind[1]
 		}
-
 		err := syscall.Mount(source, path.Join(containerPath, dest), "", syscall.MS_BIND, "")
 		if err != nil {
-			fmt.Printf("BIND ERROR: %s\n", err)
-			os.Exit(1)
+			errors.Wrap(err, fmt.Sprintf("could not bind %s to %s", source, dest))
+		}
+		if len(bind) == 3 && bind[2] == "ro" {
+			err = syscall.Mount(source, path.Join(containerPath, dest), "", syscall.MS_REMOUNT|syscall.MS_RDONLY|syscall.MS_BIND, "")
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to remount %s as ro", path.Join(containerPath, dest)))
+			}
 		}
 	}
 
