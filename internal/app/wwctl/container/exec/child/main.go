@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -48,8 +50,9 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to mount /dev")
 	}
-
+	var createdFileObjs []string
 	for _, b := range binds {
+		fileObsIndx := len(createdFileObjs)
 		var source string
 		var dest string
 
@@ -62,10 +65,34 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 			dest = bind[1]
 		}
 
-		err := syscall.Mount(source, path.Join(containerPath, dest), "", syscall.MS_BIND, "")
+		if !util.IsFile(path.Join(containerPath, dest)) {
+			/*
+				foo := func(baar string) {
+					fmt.Println(createdFileObjs, baar)
+				}
+				foo("foobaar")
+			*/
+			var checkFile func(string)
+			checkFile = func(path string) {
+				_, err := os.Stat(path)
+				if os.IsNotExist(err) {
+					createdFileObjs = append(createdFileObjs, path)
+					checkFile(filepath.Dir(path) + "/")
+				}
+			}
+			checkFile(path.Join(containerPath, dest))
+			for i := len(createdFileObjs) - 1; i >= fileObsIndx; i-- {
+				if strings.HasSuffix(createdFileObjs[i], "/") {
+					os.Mkdir(createdFileObjs[i], os.ModePerm)
+				} else {
+					desc, _ := os.OpenFile(createdFileObjs[i], os.O_RDONLY|os.O_CREATE, 0666)
+					defer desc.Close()
+				}
+			}
+		}
+		err = syscall.Mount(source, path.Join(containerPath, dest), "", syscall.MS_BIND, "")
 		if err != nil {
-			fmt.Printf("BIND ERROR: %s\n", err)
-			os.Exit(1)
+			wwlog.Warn("BIND ERROR: %s", err)
 		}
 	}
 
