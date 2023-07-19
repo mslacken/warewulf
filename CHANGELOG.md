@@ -109,6 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - only write IPMI if write is true
 - Don't show an error if image files for containers can't be found. #933
 
+- default is now protected and can't be deleted
+- first container imported container is added to the default profile
 ## [4.4.0] 2023-01-18
 
 ### Added
