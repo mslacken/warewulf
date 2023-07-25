@@ -1,8 +1,10 @@
 package warewulfd
 
 import (
+	"bufio"
 	"net/http"
 	"os"
+	"strings"
 
 	nodepkg "github.com/hpcng/warewulf/internal/pkg/node"
 	"github.com/hpcng/warewulf/internal/pkg/overlay"
@@ -79,5 +81,27 @@ func getOverlayFile(
 		}
 	}
 
+	return
+}
+
+/*
+returns the mac address if it has an entry in the arp cache
+*/
+
+func ArpFind(ip string) (mac string) {
+	arpCache, err := os.Open("/proc/net/arp")
+	if err != nil {
+		return
+	}
+	defer arpCache.Close()
+
+	scanner := bufio.NewScanner(arpCache)
+	scanner.Scan()
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if strings.EqualFold(fields[0], ip) {
+			return fields[3]
+		}
+	}
 	return
 }
