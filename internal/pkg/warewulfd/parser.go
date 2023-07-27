@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hpcng/warewulf/internal/pkg/wwlog"
 	"github.com/pkg/errors"
 )
 
@@ -16,6 +17,7 @@ type parserInfo struct {
 	uuid       string
 	stage      string
 	overlay    string
+	efifile    string
 	compress   string
 }
 
@@ -31,10 +33,14 @@ func parseReq(req *http.Request) (parserInfo, error) {
 
 	// handle when stage was passed in the url path /[stage]/hwaddr
 	stage := path_parts[1]
-	hwaddr := path_parts[2]
-	hwaddr = strings.ReplaceAll(hwaddr, "-", ":")
-	hwaddr = strings.ToLower(hwaddr)
-
+	hwaddr := ""
+	if stage != "efiboot" {
+		hwaddr = path_parts[2]
+		hwaddr = strings.ReplaceAll(hwaddr, "-", ":")
+		hwaddr = strings.ToLower(hwaddr)
+	} else {
+		ret.efifile = path_parts[2]
+	}
 	ret.hwaddr = hwaddr
 	ret.ipaddr = strings.Split(req.RemoteAddr, ":")[0]
 	ret.remoteport, _ = strconv.Atoi(strings.Split(req.RemoteAddr, ":")[1])
@@ -63,6 +69,8 @@ func parseReq(req *http.Request) (parserInfo, error) {
 			ret.stage = "system"
 		} else if stage == "overlay-runtime" {
 			ret.stage = "runtime"
+		} else if stage == "efiboot" {
+			ret.stage = "efiboot"
 		}
 	}
 
@@ -76,7 +84,11 @@ func parseReq(req *http.Request) (parserInfo, error) {
 		return ret, errors.New("no stage encoded in GET")
 	}
 	if ret.hwaddr == "" {
-		return ret, errors.New("no hwaddr encoded in GET")
+		ret.hwaddr = ArpFind(ret.ipaddr)
+		wwlog.Verbose("node mac encoded, arp cache got %s for %s", ret.hwaddr, ret.ipaddr)
+		if ret.hwaddr == "" {
+			return ret, errors.New("no hwaddr encoded in GET")
+		}
 	}
 	if ret.ipaddr == "" {
 		return ret, errors.New("could not obtain ipaddr from HTTP request")
