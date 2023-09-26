@@ -108,6 +108,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - added general test framework which creates temporary directories on the fly
 - only write IPMI if write is true
 - Don't show an error if image files for containers can't be found. #933
+- Don't panic on malformed passwd #527
+- Introduced IPXESOURCE environment variable which allows to specify the path to iPXE 
+  binaries not provided by warewulf
 
 - first container imported container is added to the default profile
 - grub in combination can now be set as boot method with `warewulf.grubboot: true` in 
