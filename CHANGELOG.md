@@ -109,8 +109,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - only write IPMI if write is true
 - Don't show an error if image files for containers can't be found. #933
 
-- default is now protected and can't be deleted
 - first container imported container is added to the default profile
+- grub in combination can now be set as boot method with `warewulf.grubboot: true` in 
+  `warewulf.conf`. For unknown nodes `grub.efi` and `shim.efi` will be extracted from
+  the host running warewulf. If node has container it will get these binaries from the
+  container image.
+
 ## [4.4.0] 2023-01-18
 
 ### Added
