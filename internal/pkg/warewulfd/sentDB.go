@@ -26,7 +26,11 @@ type File struct {
 	Sha256hex string `json:"sha256"`
 }
 
-// database for the checksum of sent files
+/*
+Database for the checksum of sent files, this
+values can be used for measured boot in combination with
+TPM devicces
+*/
 var sentDB map[string]*SentFiles
 
 // mutex for locking the map
