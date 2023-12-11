@@ -6,16 +6,15 @@ import (
 	"strings"
 )
 
-func (config *NodeYaml) FindByHwaddr(hwa string) (NodeInfo, error) {
+/*
+Gets a node by its hardware(mac) address
+*/
+func (config *NodeYaml) FindByHwaddr(hwa string) (NodeConf, error) {
 	if _, err := net.ParseMAC(hwa); err != nil {
-		return NodeInfo{}, errors.New("invalid hardware address: " + hwa)
+		return NodeConf{}, errors.New("invalid hardware address: " + hwa)
 	}
-
-	var ret NodeInfo
-
-	n, _ := config.FindAllNodes()
-
-	for _, node := range n {
+	nodeList, _ := config.FindAllNodes()
+	for _, node := range nodeList {
 		for _, dev := range node.NetDevs {
 			if strings.EqualFold(dev.Hwaddr.Get(), hwa) {
 				return node, nil
@@ -23,20 +22,20 @@ func (config *NodeYaml) FindByHwaddr(hwa string) (NodeInfo, error) {
 		}
 	}
 
-	return ret, errors.New("No nodes found with HW Addr: " + hwa)
+	return NodeConf{}, ErrNotFound
 }
 
-func (config *NodeYaml) FindByIpaddr(ipaddr string) (NodeInfo, error) {
+/*
+Find a node by its ip address
+*/
+func (config *NodeYaml) FindByIpaddr(ipaddr string) (NodeConf, error) {
 	if addr := net.ParseIP(ipaddr); addr == nil {
-		return NodeInfo{}, errors.New("invalid IP:" + ipaddr)
+		return NodeConf{}, errors.New("invalid IP:" + ipaddr)
 	} else {
 		ipaddr = addr.String()
 	}
-	var ret NodeInfo
-
-	n, _ := config.FindAllNodes()
-
-	for _, node := range n {
+	nodeList, _ := config.FindAllNodes()
+	for _, node := range nodeList {
 		for _, dev := range node.NetDevs {
 			if dev.Ipaddr.Get() == ipaddr {
 				return node, nil
@@ -44,7 +43,7 @@ func (config *NodeYaml) FindByIpaddr(ipaddr string) (NodeInfo, error) {
 		}
 	}
 
-	return ret, errors.New("No nodes found with IP Addr: " + ipaddr)
+	return NodeConf{}, ErrNotFound
 }
 
 // Return just the node list as string slice

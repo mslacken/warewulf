@@ -16,26 +16,13 @@ type NodeYaml struct {
 NodeConf is the datastructure describing a node and a profile which in disk format.
 */
 type NodeConf struct {
-	Comment       string `yaml:"comment,omitempty" lopt:"comment" comment:"Set arbitrary string comment"`
-	ClusterName   string `yaml:"cluster name,omitempty" lopt:"cluster" sopt:"c" comment:"Set cluster group"`
-	ContainerName string `yaml:"container name,omitempty" lopt:"container" sopt:"C" comment:"Set container name"`
-	Ipxe          string `yaml:"ipxe template,omitempty" lopt:"ipxe" comment:"Set the iPXE template name"`
-	// Deprecated start
-	// Kernel settings here are deprecated and here for backward compatibility
-	KernelVersion  string `yaml:"kernel version,omitempty"`
-	KernelOverride string `yaml:"kernel override,omitempty"`
-	KernelArgs     string `yaml:"kernel args,omitempty"`
-	// Ipmi settings herer are deprecated and here for backward compatibility
-	IpmiUserName   string `yaml:"ipmi username,omitempty"`
-	IpmiPassword   string `yaml:"ipmi password,omitempty"`
-	IpmiIpaddr     string `yaml:"ipmi ipaddr,omitempty"`
-	IpmiNetmask    string `yaml:"ipmi netmask,omitempty"`
-	IpmiPort       string `yaml:"ipmi port,omitempty"`
-	IpmiGateway    string `yaml:"ipmi gateway,omitempty"`
-	IpmiInterface  string `yaml:"ipmi interface,omitempty"`
-	IpmiEscapeChar string `yaml:"ipmi escapechar,omitempty"`
-	IpmiWrite      string `yaml:"ipmi write,omitempty"`
-	// Deprecated end
+	// memory only start
+	Id string `yaml:"omitempty` // <- will be erased as Nodes will be stored in a map and Id is the key
+	// memory only end
+	Comment        string                 `yaml:"comment,omitempty" lopt:"comment" comment:"Set arbitrary string comment"`
+	ClusterName    string                 `yaml:"cluster name,omitempty" lopt:"cluster" sopt:"c" comment:"Set cluster group"`
+	ContainerName  string                 `yaml:"container name,omitempty" lopt:"container" sopt:"C" comment:"Set container name"`
+	Ipxe           string                 `yaml:"ipxe template,omitempty" lopt:"ipxe" comment:"Set the iPXE template name"`
 	RuntimeOverlay []string               `yaml:"runtime overlay,omitempty" lopt:"runtime" sopt:"R" comment:"Set the runtime overlay"`
 	SystemOverlay  []string               `yaml:"system overlay,omitempty" lopt:"wwinit" sopt:"O" comment:"Set the system overlay"`
 	Kernel         *KernelConf            `yaml:"kernel,omitempty"`
@@ -125,109 +112,6 @@ type FileSystem struct {
 	Uuid           string   `yaml:"uuid,omitempty" comment:"the uuid of the filesystem"`
 	Options        []string `yaml:"options,omitempty" comment:"any additional options to be passed to the format-specific mkfs utility"`
 	MountOptions   []string `yaml:"mount_options,omitempty" comment:"any special options to be passed to the mount command"`
-}
-
-/******
- * Internal code data representations
- ******/
-/*
-Holds string values, when accessed via Get, its value
-is returned which is the default or if set the value
-from the profile or if set the value of the node itself
-*/
-type Entry struct {
-	value    []string
-	altvalue []string
-	from     string
-	def      []string
-}
-
-/*
-NodeInfo is the in memory datastructure, which can containe
-a default value, which is overwritten by the overlay from the
-overlay (altvalue) which is overwitten by the value of the
-node itself, for all values of type Entry.
-*/
-type NodeInfo struct {
-	Id             Entry
-	Comment        Entry
-	ClusterName    Entry
-	ContainerName  Entry
-	Ipxe           Entry
-	RuntimeOverlay Entry
-	SystemOverlay  Entry
-	Root           Entry
-	Discoverable   Entry
-	Init           Entry //TODO: Finish adding this...
-	AssetKey       Entry
-	Kernel         *KernelEntry
-	Ipmi           *IpmiEntry
-	Profiles       Entry
-	PrimaryNetDev  Entry
-	NetDevs        map[string]*NetDevEntry
-	Tags           map[string]*Entry
-	Disks          map[string]*DiskEntry
-	FileSystems    map[string]*FileSystemEntry
-}
-
-type IpmiEntry struct {
-	Ipaddr     Entry
-	Netmask    Entry
-	Port       Entry
-	Gateway    Entry
-	UserName   Entry
-	Password   Entry
-	Interface  Entry
-	EscapeChar Entry
-	Write      Entry
-	Tags       map[string]*Entry
-}
-
-type KernelEntry struct {
-	Override Entry
-	Args     Entry
-}
-
-type NetDevEntry struct {
-	Type    Entry
-	OnBoot  Entry
-	Device  Entry
-	Hwaddr  Entry
-	Ipaddr  Entry
-	Ipaddr6 Entry
-	IpCIDR  Entry
-	Prefix  Entry
-	Netmask Entry
-	Gateway Entry
-	MTU     Entry
-	Primary Entry
-	Tags    map[string]*Entry
-}
-
-type DiskEntry struct {
-	WipeTable  Entry
-	Partitions map[string]*PartitionEntry
-}
-
-type PartitionEntry struct {
-	Number             Entry
-	SizeMiB            Entry
-	StartMiB           Entry
-	TypeGuid           Entry
-	Guid               Entry
-	WipePartitionEntry Entry
-	ShouldExist        Entry
-	Resize             Entry
-}
-
-type FileSystemEntry struct {
-	Format         Entry
-	Path           Entry
-	WipeFileSystem Entry
-	Label          Entry
-	Uuid           Entry
-	Options        Entry
-	MountOptions   Entry
 }
 
 // string which is printed if no value is set

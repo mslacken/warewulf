@@ -1,23 +1,16 @@
 package node
 
 import (
-	"fmt"
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
-	"strings"
-
-	"github.com/hpcng/warewulf/internal/pkg/util"
-	"github.com/hpcng/warewulf/internal/pkg/wwlog"
 )
 
-type sortByName []NodeInfo
+type sortByName []NodeConf
 
 func (a sortByName) Len() int           { return len(a) }
 func (a sortByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a sortByName) Less(i, j int) bool { return a[i].Id.Print() < a[j].Id.Print() }
-
+func (a sortByName) Less(i, j int) bool { return a[i].Id < a[j].Id }
 func GetUnsetVerbs() []string {
 	return []string{"UNSET", "DELETE", "UNDEF", "undef", "--", "nil", "0.0.0.0"}
 }
@@ -29,18 +22,18 @@ func GetUnsetVerbs() []string {
  *********/
 
 /*
-Filter a given slice of NodeInfo against a given
+Filter a given slice of NodeConf against a given
 regular expression
 */
-func FilterByName(set []NodeInfo, searchList []string) []NodeInfo {
-	var ret []NodeInfo
-	unique := make(map[string]NodeInfo)
+func FilterByName(set []NodeConf, searchList []string) []NodeConf {
+	var ret []NodeConf
+	unique := make(map[string]NodeConf)
 
 	if len(searchList) > 0 {
 		for _, search := range searchList {
 			for _, entry := range set {
-				if match, _ := regexp.MatchString("^"+search+"$", entry.Id.Get()); match {
-					unique[entry.Id.Get()] = entry
+				if match, _ := regexp.MatchString("^"+search+"$", entry.Id); match {
+					unique[entry.Id] = entry
 				}
 			}
 		}
@@ -72,325 +65,6 @@ func FilterMapByName(inputMap map[string]*NodeConf, searchList []string) (retMap
 	return retMap
 }
 
-/**********
- *
- * Sets
- *
- *********/
-
-/*
-Set value. If argument is 'UNDEF', 'DELETE',
-'UNSET" or '--' the value is removed.
-N.B. the '--' might never ever happen as '--'
-is parsed out by cobra
-*/
-func (ent *Entry) Set(val string) {
-	if val == "" {
-		return
-	}
-
-	if util.InSlice(GetUnsetVerbs(), val) {
-		wwlog.Debug("Removing value for %v", *ent)
-		ent.value = []string{""}
-	} else {
-		ent.value = []string{val}
-	}
-}
-
-/*
-Set bool
-*/
-func (ent *Entry) SetB(val bool) {
-	if val {
-		ent.value = []string{"true"}
-	} else {
-		ent.value = []string{"false"}
-	}
-}
-
-func (ent *Entry) SetSlice(val []string) {
-	if len(val) == 0 {
-		return
-	} else if len(val) == 1 && val[0] == "" { // check also for an "empty" slice
-		return
-	}
-	if util.InSlice(GetUnsetVerbs(), val[0]) {
-		ent.value = []string{}
-	} else {
-		ent.value = val
-	}
-}
-
-/*
-Set alternative value
-*/
-func (ent *Entry) SetAlt(val string, from string) {
-	if val == "" {
-		return
-	}
-	ent.altvalue = []string{val}
-	ent.from = from
-}
-
-/*
-Sets alternative bool
-*/
-func (ent *Entry) SetAltB(val bool, from string) {
-	if val {
-		ent.altvalue = []string{"true"}
-		ent.from = from
-	} else {
-		ent.altvalue = []string{"false"}
-		ent.from = from
-	}
-}
-
-/*
-Sets alternative slice
-*/
-func (ent *Entry) SetAltSlice(val []string, from string) {
-	if len(val) == 0 {
-		return
-	}
-	ent.altvalue = val
-	ent.from = from
-}
-
-/*
-Sets the default value of an entry.
-*/
-func (ent *Entry) SetDefault(val string) {
-	if val == "" {
-		return
-	}
-	ent.def = []string{val}
-}
-
-/*
-Set the default entry as slice
-*/
-func (ent *Entry) SetDefaultSlice(val []string) {
-	if len(val) == 0 {
-		return
-	}
-	ent.def = val
-}
-
-/*
-Set default etry as bool
-*/
-func (ent *Entry) SetDefaultB(val bool) {
-	if val {
-		ent.def = []string{"true"}
-	} else {
-		ent.def = []string{"false"}
-	}
-}
-
-/*
-Remove a element from a slice
-*/
-func (ent *Entry) SliceRemoveElement(val string) {
-	util.SliceRemoveElement(ent.value, val)
-}
-
-/**********
-*
-* Gets
-*
-*********/
-/*
-Gets the the entry of the value in folowing order
-* node value if set
-* profile value if set
-* default value if set
-*/
-func (ent *Entry) Get() string {
-	if len(ent.value) != 0 {
-		return ent.value[0]
-	}
-	if len(ent.altvalue) != 0 {
-		return ent.altvalue[0]
-	}
-	if len(ent.def) != 0 {
-		return ent.def[0]
-	}
-	return ""
-}
-
-/*
-Get the bool value of an entry.
-*/
-func (ent *Entry) GetB() bool {
-	if len(ent.value) > 0 {
-		return !(strings.ToLower(ent.value[0]) == "false" ||
-			strings.ToLower(ent.value[0]) == "no" ||
-			ent.value[0] == "0")
-	} else if len(ent.altvalue) > 0 {
-		return !(strings.ToLower(ent.altvalue[0]) == "false" ||
-			strings.ToLower(ent.altvalue[0]) == "no" ||
-			ent.altvalue[0] == "0")
-	} else {
-		return !(len(ent.def) == 0 ||
-			strings.ToLower(ent.def[0]) == "false" ||
-			strings.ToLower(ent.def[0]) == "no" ||
-			ent.def[0] == "0")
-	}
-}
-
-/*
-Returns a string slice created from a comma seperated list of the value.
-*/
-func (ent *Entry) GetSlice() []string {
-	var retval []string
-	if len(ent.value) != 0 {
-		return ent.value
-	}
-	if len(ent.altvalue) != 0 {
-		return ent.altvalue
-	}
-	if len(ent.def) != 0 {
-		return ent.def
-	}
-	return retval
-}
-
-/*
-Get the real value, not the alternative of default one.
-*/
-func (ent *Entry) GetReal() string {
-	if len(ent.value) == 0 {
-		return ""
-	}
-	return ent.value[0]
-}
-
-/*
-Get the real value, not the alternative of default one.
-*/
-func (ent *Entry) GetRealSlice() []string {
-	if len(ent.value) == 0 {
-		return []string{}
-	}
-	return ent.value
-}
-
-/*
-true if the entry has set a real value, else false.
-*/
-func (ent *Entry) GotReal() bool {
-	return len(ent.value) != 0
-}
-
-/*
-Get a pointer to the value
-*/
-func (ent *Entry) GetPointer() *string {
-	ret := ent.Get()
-	return &ret
-}
-
-/*
-Try to get a int of a value, 0 if value can't be parsed!
-*/
-func (ent *Entry) GetInt() int {
-	var ret int
-	if len(ent.value) != 0 {
-		ret, _ = strconv.Atoi(ent.value[0])
-	} else if len(ent.altvalue) != 0 {
-		ret, _ = strconv.Atoi(ent.altvalue[0])
-	} else if len(ent.def) != 0 {
-		ret, _ = strconv.Atoi(ent.def[0])
-	}
-	return ret
-}
-
-/*
-Ptr to int
-*/
-func (ent *Entry) GetIntPtr() *int {
-	ret := ent.GetInt()
-	return &ret
-}
-
-/**********
- *
- * Misc
- *
- *********/
-
-/*
-Returns the value of Entry if it was defined set or
-alternative is presend. Default value is in '()'. If
-nothing is defined '--' is returned.
-*/
-func (ent *Entry) Print() string {
-	if len(ent.value) != 0 {
-		return strings.Join(ent.value, ",")
-	}
-	if len(ent.altvalue) != 0 {
-		return strings.Join(ent.altvalue, ",")
-	}
-	if len(ent.def) != 0 {
-		return "(" + strings.Join(ent.def, ",") + ")"
-	}
-	return "--"
-}
-
-/*
-Was used for combined stringSlice
-
-func (ent *Entry) PrintComb() string {
-	if ent.value != "" && ent.altvalue != "" {
-		return "[" + ent.value + "," + ent.altvalue + "]"
-	}
-	return ent.Print()
-}
-*/
-
-/*
-same as GetB()
-*/
-func (ent *Entry) PrintB() string {
-	if len(ent.value) != 0 || len(ent.altvalue) != 0 {
-		return fmt.Sprintf("%t", ent.GetB())
-	}
-	return fmt.Sprintf("(%t)", ent.GetB())
-}
-
-/*
-Returns SUPERSEDED if value was set per node or
-per profile. Else -- is returned.
-*/
-func (ent *Entry) Source() string {
-	if len(ent.value) != 0 && len(ent.altvalue) != 0 {
-		return "SUPERSEDED"
-		// return fmt.Sprintf("[%s]", ent.from)
-	} else if ent.from == "" {
-		return "--"
-	}
-	return ent.from
-}
-
-/*
-Check if value was defined.
-*/
-func (ent *Entry) Defined() bool {
-	if len(ent.value) != 0 {
-		return true
-	}
-	if len(ent.altvalue) != 0 {
-		return true
-	}
-	if len(ent.def) != 0 {
-		return true
-	}
-	return false
-}
-
-/*
-Create an empty node NodeConf
-*/
 func NewConf() (nodeconf NodeConf) {
 	nodeconf.Ipmi = new(IpmiConf)
 	nodeconf.Ipmi.Tags = map[string]string{}
@@ -398,34 +72,6 @@ func NewConf() (nodeconf NodeConf) {
 	nodeconf.NetDevs = make(map[string]*NetDevs)
 	nodeconf.Tags = map[string]string{}
 	return nodeconf
-}
-
-/*
-Create an empty node NodeInfo
-*/
-func NewInfo() (nodeInfo NodeInfo) {
-	nodeInfo.Ipmi = new(IpmiEntry)
-	nodeInfo.Ipmi.Tags = map[string]*Entry{}
-	nodeInfo.Kernel = new(KernelEntry)
-	nodeInfo.NetDevs = make(map[string]*NetDevEntry)
-	nodeInfo.Tags = make(map[string]*Entry)
-	return nodeInfo
-}
-
-/*
-Get a entry by its name
-*/
-func GetByName(node interface{}, name string) (string, error) {
-	valEntry := reflect.ValueOf(node)
-	entryField := valEntry.Elem().FieldByName(name)
-	if entryField == (reflect.Value{}) {
-		return "", fmt.Errorf("couldn't find field with name: %s", name)
-	}
-	if entryField.Type() != reflect.TypeOf(Entry{}) {
-		return "", fmt.Errorf("field %s is not of type node.Entry", name)
-	}
-	myEntry := entryField.Interface().(Entry)
-	return myEntry.Get(), nil
 }
 
 /*
@@ -460,4 +106,40 @@ func ObjectIsEmpty(obj interface{}) bool {
 		}
 	}
 	return true
+}
+
+/*
+Flattens out a NodeConf, which means if there are no explicit values in *IpmiConf
+or *KernelConf, these pointer will set to nil. This will remove something like
+ipmi: {} from nodes.conf
+*/
+func (info *NodeConf) Flatten() {
+	recursiveFlatten(info)
+}
+func recursiveFlatten(strct interface{}) {
+	confType := reflect.TypeOf(strct)
+	confVal := reflect.ValueOf(strct)
+	for j := 0; j < confType.Elem().NumField(); j++ {
+		if confVal.Elem().Field(j).Type().Kind() == reflect.Ptr && !confVal.Elem().Field(j).IsNil() {
+			// iterate now over the ptr fields
+			setToNil := true
+			nestedType := reflect.TypeOf(confVal.Elem().Field(j).Interface())
+			nestedVal := reflect.ValueOf(confVal.Elem().Field(j).Interface())
+			for i := 0; i < nestedType.Elem().NumField(); i++ {
+				if nestedType.Elem().Field(i).Type.Kind() == reflect.String &&
+					nestedVal.Elem().Field(i).Interface().(string) != "" {
+					setToNil = false
+				} else if nestedType.Elem().Field(i).Type == reflect.TypeOf([]string{}) &&
+					len(nestedVal.Elem().Field(i).Interface().([]string)) != 0 {
+					setToNil = false
+				} else if nestedType.Elem().Field(i).Type == reflect.TypeOf(map[string]string{}) &&
+					len(nestedVal.Elem().Field(i).Interface().(map[string]string)) != 0 {
+					setToNil = false
+				}
+			}
+			if setToNil {
+				confVal.Elem().Field(j).Set(reflect.Zero(confVal.Elem().Field(j).Type()))
+			}
+		}
+	}
 }
