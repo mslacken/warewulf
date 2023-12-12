@@ -92,10 +92,10 @@ func Test_getOverlayFile(t *testing.T) {
 
 	for _, tt := range getOverlayFileTests {
 		t.Run(tt.description, func(t *testing.T) {
-			var nodeInfo node.NodeInfo
-			nodeInfo.Id.Set(tt.node)
-			nodeInfo.RuntimeOverlay.SetSlice(tt.overlays)
-			nodeInfo.SystemOverlay.SetSlice(tt.overlays)
+			var nodeInfo node.NodeConf
+			//nodeInfo.Id.Set(tt.node)
+			nodeInfo.RuntimeOverlay = tt.overlays
+			nodeInfo.SystemOverlay = tt.overlays
 			result, err := getOverlayFile(nodeInfo, tt.context, tt.overlays, false)
 			assert.NoError(t, err)
 			if tt.result != "" {

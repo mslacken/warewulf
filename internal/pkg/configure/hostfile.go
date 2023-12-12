@@ -22,6 +22,9 @@ func Hostfile() error {
 
 	hostname, _ := os.Hostname()
 	tstruct, err := overlay.InitStruct(hostname)
+	if err != nil {
+		return err
+	}
 	buffer, backupFile, writeFile, err := overlay.RenderTemplateFile(
 		hostTemplate,
 		tstruct)
