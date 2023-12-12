@@ -16,7 +16,7 @@ func (config *NodeYaml) FindByHwaddr(hwa string) (NodeConf, error) {
 	nodeList, _ := config.FindAllNodes()
 	for _, node := range nodeList {
 		for _, dev := range node.NetDevs {
-			if strings.EqualFold(dev.Hwaddr.Get(), hwa) {
+			if strings.EqualFold(dev.Hwaddr, hwa) {
 				return node, nil
 			}
 		}
@@ -37,7 +37,7 @@ func (config *NodeYaml) FindByIpaddr(ipaddr string) (NodeConf, error) {
 	nodeList, _ := config.FindAllNodes()
 	for _, node := range nodeList {
 		for _, dev := range node.NetDevs {
-			if dev.Ipaddr.Get() == ipaddr {
+			if dev.Ipaddr == ipaddr {
 				return node, nil
 			}
 		}

@@ -10,7 +10,7 @@ type sortByName []NodeConf
 
 func (a sortByName) Len() int           { return len(a) }
 func (a sortByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a sortByName) Less(i, j int) bool { return a[i].Id < a[j].Id }
+func (a sortByName) Less(i, j int) bool { return a[i].id < a[j].id }
 func GetUnsetVerbs() []string {
 	return []string{"UNSET", "DELETE", "UNDEF", "undef", "--", "nil", "0.0.0.0"}
 }
@@ -32,8 +32,8 @@ func FilterByName(set []NodeConf, searchList []string) []NodeConf {
 	if len(searchList) > 0 {
 		for _, search := range searchList {
 			for _, entry := range set {
-				if match, _ := regexp.MatchString("^"+search+"$", entry.Id); match {
-					unique[entry.Id] = entry
+				if match, _ := regexp.MatchString("^"+search+"$", entry.id); match {
+					unique[entry.id] = entry
 				}
 			}
 		}
@@ -65,12 +65,13 @@ func FilterMapByName(inputMap map[string]*NodeConf, searchList []string) (retMap
 	return retMap
 }
 
-func NewConf() (nodeconf NodeConf) {
+func NewConf(id string) (nodeconf NodeConf) {
 	nodeconf.Ipmi = new(IpmiConf)
 	nodeconf.Ipmi.Tags = map[string]string{}
 	nodeconf.Kernel = new(KernelConf)
 	nodeconf.NetDevs = make(map[string]*NetDevs)
 	nodeconf.Tags = map[string]string{}
+	nodeconf.id = id
 	return nodeconf
 }
 
@@ -142,4 +143,22 @@ func recursiveFlatten(strct interface{}) {
 			}
 		}
 	}
+}
+
+/*
+Getters for unexported fields
+*/
+
+/*
+Returns the id of the node/profile
+*/
+func (node *NodeConf) Id() string {
+	return node.id
+}
+
+/*
+Returns if the node is a valid in the database
+*/
+func (node *NodeConf) Valid() bool {
+	return node.valid
 }

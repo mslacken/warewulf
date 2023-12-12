@@ -12,6 +12,7 @@ import (
 	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 	"github.com/hpcng/warewulf/internal/pkg/container"
 	"github.com/hpcng/warewulf/internal/pkg/kernel"
+	"github.com/hpcng/warewulf/internal/pkg/node"
 	"github.com/hpcng/warewulf/internal/pkg/overlay"
 	"github.com/hpcng/warewulf/internal/pkg/util"
 	"github.com/hpcng/warewulf/internal/pkg/wwlog"
@@ -65,21 +66,21 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 	// TODO: when module version is upgraded to go1.18, should be 'any' type
 	var tmpl_data interface{}
 
-	node, err := GetNodeOrSetDiscoverable(rinfo.hwaddr)
-	if err != nil {
+	remoteNode, err := GetNodeOrSetDiscoverable(rinfo.hwaddr)
+	if err != nil && err != node.ErrNoUnconfigured {
 		wwlog.ErrorExc(err, "")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	if node.AssetKey.Defined() && node.AssetKey.Get() != rinfo.assetkey {
+	if remoteNode.AssetKey != "" && remoteNode.AssetKey != rinfo.assetkey {
 		w.WriteHeader(http.StatusUnauthorized)
-		wwlog.Denied("Incorrect asset key for node: %s", node.Id.Get())
-		updateStatus(node.Id.Get(), status_stage, "BAD_ASSET", rinfo.ipaddr)
+		wwlog.Denied("Incorrect asset key for node: %s", remoteNode.Id())
+		updateStatus(remoteNode.Id(), status_stage, "BAD_ASSET", rinfo.ipaddr)
 		return
 	}
 
-	if !node.Id.Defined() {
+	if !remoteNode.Valid() {
 		wwlog.Error("%s (unknown/unconfigured node)", rinfo.hwaddr)
 		if rinfo.stage == "ipxe" {
 			stage_file = path.Join(conf.Paths.Sysconfdir, "/warewulf/ipxe/unconfigured.ipxe")
@@ -88,44 +89,44 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 		}
 
 	} else if rinfo.stage == "ipxe" {
-		stage_file = path.Join(conf.Paths.Sysconfdir, "warewulf/ipxe/"+node.Ipxe.Get()+".ipxe")
+		stage_file = path.Join(conf.Paths.Sysconfdir, "warewulf/ipxe/"+remoteNode.Ipxe+".ipxe")
 		tmpl_data = iPxeTemplate{
-			Id:             node.Id.Get(),
-			Cluster:        node.ClusterName.Get(),
-			Fqdn:           node.Id.Get(),
+			Id:             remoteNode.Id(),
+			Cluster:        remoteNode.ClusterName,
+			Fqdn:           remoteNode.Id(),
 			Ipaddr:         conf.Ipaddr,
 			Port:           strconv.Itoa(conf.Warewulf.Port),
-			Hostname:       node.Id.Get(),
+			Hostname:       remoteNode.Id(),
 			Hwaddr:         rinfo.hwaddr,
-			ContainerName:  node.ContainerName.Get(),
-			KernelArgs:     node.Kernel.Args.Get(),
-			KernelOverride: node.Kernel.Override.Get()}
+			ContainerName:  remoteNode.ContainerName,
+			KernelArgs:     remoteNode.Kernel.Args,
+			KernelOverride: remoteNode.Kernel.Override}
 
 	} else if rinfo.stage == "kernel" {
-		if node.Kernel.Override.Defined() {
-			stage_file = kernel.KernelImage(node.Kernel.Override.Get())
-		} else if node.ContainerName.Defined() {
-			stage_file = container.KernelFind(node.ContainerName.Get())
+		if remoteNode.Kernel.Override != "" {
+			stage_file = kernel.KernelImage(remoteNode.Kernel.Override)
+		} else if remoteNode.ContainerName != "" {
+			stage_file = container.KernelFind(remoteNode.ContainerName)
 
 			if stage_file == "" {
-				wwlog.Error("No kernel found for container %s", node.ContainerName.Get())
+				wwlog.Error("No kernel found for container %s", remoteNode.ContainerName)
 			}
 		} else {
-			wwlog.Warn("No kernel version set for node %s", node.Id.Get())
+			wwlog.Warn("No kernel version set for node %s", remoteNode.Id())
 		}
 
 	} else if rinfo.stage == "kmods" {
-		if node.Kernel.Override.Defined() {
-			stage_file = kernel.KmodsImage(node.Kernel.Override.Get())
+		if remoteNode.Kernel.Override != "" {
+			stage_file = kernel.KmodsImage(remoteNode.Kernel.Override)
 		} else {
-			wwlog.Warn("No kernel override modules set for node %s", node.Id.Get())
+			wwlog.Warn("No kernel override modules set for node %s", remoteNode.Id())
 		}
 
 	} else if rinfo.stage == "container" {
-		if node.ContainerName.Defined() {
-			stage_file = container.ImageFile(node.ContainerName.Get())
+		if remoteNode.ContainerName != "" {
+			stage_file = container.ImageFile(remoteNode.ContainerName)
 		} else {
-			wwlog.Warn("No container set for node %s", node.Id.Get())
+			wwlog.Warn("No container set for node %s", remoteNode.Id())
 		}
 
 	} else if rinfo.stage == "system" || rinfo.stage == "runtime" {
@@ -139,7 +140,7 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 		}
 
 		stage_file, err = getOverlayFile(
-			node,
+			remoteNode,
 			context,
 			request_overlays,
 			conf.Warewulf.AutobuildOverlays)
@@ -192,7 +193,7 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 				wwlog.ErrorExc(err, "")
 			}
 
-			wwlog.Send("%15s: %s", node.Id.Get(), stage_file)
+			wwlog.Send("%15s: %s", remoteNode.Id(), stage_file)
 
 		} else {
 			if rinfo.compress == "gz" {
@@ -210,24 +211,24 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			}
 
-			err = sendFile(w, req, stage_file, node.Id.Get())
+			err = sendFile(w, req, stage_file, remoteNode.Id())
 			if err != nil {
 				wwlog.ErrorExc(err, "")
 				return
 			}
 		}
 
-		updateStatus(node.Id.Get(), status_stage, path.Base(stage_file), rinfo.ipaddr)
+		updateStatus(remoteNode.Id(), status_stage, path.Base(stage_file), rinfo.ipaddr)
 
 	} else if stage_file == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		wwlog.Error("No resource selected")
-		updateStatus(node.Id.Get(), status_stage, "BAD_REQUEST", rinfo.ipaddr)
+		updateStatus(remoteNode.Id(), status_stage, "BAD_REQUEST", rinfo.ipaddr)
 
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 		wwlog.Error("Not found: %s", stage_file)
-		updateStatus(node.Id.Get(), status_stage, "NOT_FOUND", rinfo.ipaddr)
+		updateStatus(remoteNode.Id(), status_stage, "NOT_FOUND", rinfo.ipaddr)
 	}
 
 }

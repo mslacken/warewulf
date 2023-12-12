@@ -1,14 +1,14 @@
 package overlay
 
 import (
-	"net"
+	"bytes"
+	"encoding/gob"
 	"os"
 	"strconv"
 	"time"
 
 	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 	"github.com/hpcng/warewulf/internal/pkg/node"
-	"github.com/hpcng/warewulf/internal/pkg/wwlog"
 )
 
 /*
@@ -33,69 +33,56 @@ type TemplateStruct struct {
 	Warewulf      warewulfconf.WarewulfConf
 	Tftp          warewulfconf.TFTPConf
 	Paths         warewulfconf.BuildConfig
-	AllNodes      []node.NodeInfo
+	AllNodes      []node.NodeConf
 	node.NodeConf
 	// backward compatiblity
 	Container string
-	ThisNode  *node.NodeInfo
+	ThisNode  *node.NodeConf
 }
 
 /*
 Initialize an TemplateStruct with the given node.NodeInfo
 */
-func InitStruct(nodeInfo *node.NodeInfo) TemplateStruct {
+func InitStruct(nodeId string) (TemplateStruct, error) {
 	var tstruct TemplateStruct
-	tstruct.ThisNode = nodeInfo
-	controller := warewulfconf.Get()
-	nodeDB, err := node.New()
-	if err != nil {
-		wwlog.Error("%s", err)
-		os.Exit(1)
-	}
-	allNodes, err := nodeDB.FindAllNodes()
-	if err != nil {
-		wwlog.Error("%s", err)
-		os.Exit(1)
-	}
-	// init some convenience vars
-	tstruct.Id = nodeInfo.Id.Get()
-	tstruct.Hostname = nodeInfo.Id.Get()
-	// Backwards compatibility for templates using "Keys"
-	tstruct.AllNodes = allNodes
-	tstruct.Nfs = *controller.NFS
-	tstruct.Dhcp = *controller.DHCP
-	tstruct.Tftp = *controller.TFTP
-	tstruct.Paths = *controller.Paths
-	tstruct.Warewulf = *controller.Warewulf
-	tstruct.Ipaddr = controller.Ipaddr
-	tstruct.Ipaddr6 = controller.Ipaddr6
-	tstruct.Netmask = controller.Netmask
-	tstruct.Network = controller.Network
-	netaddrStruct := net.IPNet{IP: net.ParseIP(controller.Network), Mask: net.IPMask(net.ParseIP(controller.Netmask))}
-	tstruct.NetworkCIDR = netaddrStruct.String()
-	if controller.Ipaddr6 != "" {
-		tstruct.Ipv6 = true
-	} else {
-		tstruct.Ipv6 = false
-	}
 	hostname, _ := os.Hostname()
 	tstruct.BuildHost = hostname
+	// controller := warewulfconf.Get()
+	nodeDB, err := node.New()
+	if err != nil {
+		return tstruct, err
+	}
+	thisNode, err := nodeDB.GetNode(nodeId)
+	if err == ErrDoesNotExist {
+		thisNode = node.NewConf(hostname)
+	} else if err == nil {
+		return tstruct, err
+	}
+	tstruct.ThisNode = &thisNode
+	allNodes, err := nodeDB.FindAllNodes()
+	if err != nil {
+		return tstruct, err
+	}
+	// init some convenience vars
+	tstruct.Id = thisNode.Id()
+	tstruct.Hostname = thisNode.Id()
+	// Backwards compatibility for templates using "Keys"
+	tstruct.AllNodes = allNodes
 	dt := time.Now()
 	tstruct.BuildTime = dt.Format("01-02-2006 15:04:05 MST")
 	tstruct.BuildTimeUnix = strconv.FormatInt(dt.Unix(), 10)
 	tstruct.NodeConf.Tags = map[string]string{}
-	tstruct.NodeConf.GetFrom(*nodeInfo)
-	// FIXME: Set ipCIDR address at this point, will fail with
-	// invalid ipv4 addr
-	for _, network := range tstruct.NodeConf.NetDevs {
-		ipCIDR := net.IPNet{
-			IP:   net.ParseIP(network.Ipaddr),
-			Mask: net.IPMask(net.ParseIP(network.Netmask))}
-		network.IpCIDR = ipCIDR.String()
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	dec := gob.NewDecoder(&buf)
+	err = enc.Encode(thisNode)
+	if err != nil {
+		return tstruct, err
 	}
-	// backward compatibilty
-	tstruct.Container = tstruct.NodeConf.ContainerName
-
-	return tstruct
+	err = dec.Decode(&tstruct)
+	if err != nil {
+		return tstruct, err
+	}
+	return tstruct, nil
 
 }

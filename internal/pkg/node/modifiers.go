@@ -13,7 +13,7 @@ import (
 Add a node with the given ID and return a pointer to it
 */
 func (config *NodeYaml) AddNode(nodeID string) (*NodeConf, error) {
-	node := NewConf()
+	node := NewConf(nodeID)
 	wwlog.Verbose("Adding new node: %s", nodeID)
 	if _, ok := config.Nodes[nodeID]; ok {
 		return nil, errors.New("nodename already exists: " + nodeID)
@@ -38,11 +38,11 @@ func (config *NodeYaml) DelNode(nodeID string) error {
 /*
 Add a node with the given ID and return a pointer to it
 */
-func (config *NodeYaml) AddPorfile(nodeID string) (*NodeConf, error) {
-	node := NewConf()
-	wwlog.Verbose("adding new node: %s", nodeID)
-	if _, ok := config.NodeProfiles[nodeID]; ok {
-		return nil, errors.New("profile already exists: " + nodeID)
+func (config *NodeYaml) AddPorfile(profileId string) (*NodeConf, error) {
+	node := NewConf(profileId)
+	wwlog.Verbose("adding new node: %s", profileId)
+	if _, ok := config.NodeProfiles[profileId]; ok {
+		return nil, errors.New("profile already exists: " + profileId)
 	}
 	return &node, nil
 }

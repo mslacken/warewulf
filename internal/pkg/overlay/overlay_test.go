@@ -1,15 +1,16 @@
 package overlay
 
 import (
-	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
-	"github.com/hpcng/warewulf/internal/pkg/node"
-	"github.com/sassoftware/go-rpmutils/cpio"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
 	"path"
 	"sort"
 	"testing"
+
+	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
+	"github.com/hpcng/warewulf/internal/pkg/node"
+	"github.com/sassoftware/go-rpmutils/cpio"
+	"github.com/stretchr/testify/assert"
 )
 
 var buildOverlayTests = []struct {
@@ -148,15 +149,14 @@ func Test_BuildOverlay(t *testing.T) {
 		assert.True(t, (tt.image != "" && tt.contents != nil) || (tt.image == "" && tt.contents == nil),
 			"image and contents must eiher be populated or empty together")
 
-		nodeInfo := node.NodeInfo{}
-		nodeInfo.Id.Set(tt.nodeName)
+		nodeInfo := node.NewConf(tt.nodeName)
 		t.Run(tt.description, func(t *testing.T) {
 			provisionDir, provisionDirErr := os.MkdirTemp(os.TempDir(), "ww-test-provision-*")
 			assert.NoError(t, provisionDirErr)
 			defer os.RemoveAll(provisionDir)
 			conf.Paths.WWProvisiondir = provisionDir
 
-			err := BuildOverlay(nodeInfo, tt.context, tt.overlays)
+			err := BuildOverlay(nodeInfo.Id(), tt.context, tt.overlays)
 			assert.NoError(t, err)
 			if tt.image != "" {
 				image := path.Join(provisionDir, "overlays", tt.image)
@@ -267,15 +267,14 @@ func Test_BuildAllOverlays(t *testing.T) {
 			defer os.RemoveAll(provisionDir)
 			conf.Paths.WWProvisiondir = provisionDir
 
-			var nodes []node.NodeInfo
+			var nodes []node.NodeConf
 			for i, nodeName := range tt.nodes {
-				nodeInfo := node.NodeInfo{}
-				nodeInfo.Id.Set(nodeName)
+				nodeInfo := node.NewConf(nodeName)
 				if tt.systemOverlays != nil {
-					nodeInfo.SystemOverlay.SetSlice(tt.systemOverlays[i])
+					nodeInfo.SystemOverlay = tt.systemOverlays[i]
 				}
 				if tt.runtimeOverlays != nil {
-					nodeInfo.RuntimeOverlay.SetSlice(tt.runtimeOverlays[i])
+					nodeInfo.RuntimeOverlay = tt.runtimeOverlays[i]
 				}
 				nodes = append(nodes, nodeInfo)
 			}
@@ -365,14 +364,7 @@ func Test_BuildSpecificOverlays(t *testing.T) {
 			assert.NoError(t, provisionDirErr)
 			defer os.RemoveAll(provisionDir)
 			conf.Paths.WWProvisiondir = provisionDir
-
-			var nodes []node.NodeInfo
-			for _, nodeName := range tt.nodes {
-				nodeInfo := node.NodeInfo{}
-				nodeInfo.Id.Set(nodeName)
-				nodes = append(nodes, nodeInfo)
-			}
-			err := BuildSpecificOverlays(nodes, tt.overlays)
+			err := BuildSpecificOverlays(tt.nodes, tt.overlays)
 			if !tt.succeed {
 				assert.Error(t, err)
 			} else {

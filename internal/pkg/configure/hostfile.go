@@ -4,7 +4,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/hpcng/warewulf/internal/pkg/node"
 	"github.com/hpcng/warewulf/internal/pkg/overlay"
 	"github.com/hpcng/warewulf/internal/pkg/util"
 	"github.com/hpcng/warewulf/internal/pkg/wwlog"
@@ -21,10 +20,8 @@ func Hostfile() error {
 		os.Exit(1)
 	}
 
-	nodeInfo := node.NewInfo()
 	hostname, _ := os.Hostname()
-	nodeInfo.Id.Set(hostname)
-	tstruct := overlay.InitStruct(&nodeInfo)
+	tstruct, err := overlay.InitStruct(hostname)
 	buffer, backupFile, writeFile, err := overlay.RenderTemplateFile(
 		hostTemplate,
 		tstruct)
