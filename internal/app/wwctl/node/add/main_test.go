@@ -30,30 +30,30 @@ nodes:
   n01:
     profiles:
     - default
+`},
+		{name: "single node add, profile foo",
+			args:    []string{"--profile=foo", "n01"},
+			wantErr: false,
+			stdout:  "",
+			outDb: `WW_INTERNAL: 43
+nodeprofiles: {}
+nodes:
+  n01:
+    profiles:
+    - foo
+`},
+		{name: "single node add, discoverable true, explicit",
+			args:    []string{"--discoverable=true", "n01"},
+			wantErr: false,
+			stdout:  "",
+			outDb: `WW_INTERNAL: 43
+nodeprofiles: {}
+nodes:
+  n01:
+    discoverable: "true"
+    profiles:
+    - default
 `}, /*
-					{name: "single node add, profile foo",
-						args:    []string{"--profile=foo", "n01"},
-						wantErr: false,
-						stdout:  "",
-						outDb: `WW_INTERNAL: 43
-			nodeprofiles: {}
-			nodes:
-			  n01:
-			    profiles:
-			    - foo
-			`},
-					{name: "single node add, discoverable true, explicit",
-						args:    []string{"--discoverable=true", "n01"},
-						wantErr: false,
-						stdout:  "",
-						outDb: `WW_INTERNAL: 43
-			nodeprofiles: {}
-			nodes:
-			  n01:
-			    discoverable: "true"
-			    profiles:
-			    - default
-			`},
 					{name: "single node add, discoverable true with yes",
 						args:    []string{"--discoverable=yes", "n01"},
 						wantErr: false,

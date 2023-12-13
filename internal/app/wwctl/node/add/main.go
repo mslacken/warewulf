@@ -21,13 +21,11 @@ the required type is returned
 func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		// run converters for different types
-		/*
-			for _, c := range vars.converters {
-				if err := c(); err != nil {
-					return err
-				}
+		for _, c := range vars.converters {
+			if err := c(); err != nil {
+				return err
 			}
-		*/
+		}
 		// remove the UNDEF network as all network values are assigned
 		// to this network
 		if !node.ObjectIsEmpty(vars.nodeConf.NetDevs["UNDEF"]) {

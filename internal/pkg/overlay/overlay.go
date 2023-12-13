@@ -31,13 +31,13 @@ func BuildAllOverlays(nodes []node.NodeConf) error {
 
 		sysOverlays := n.SystemOverlay
 		wwlog.Info("Building system overlays for %s: [%s]", n.Id(), strings.Join(sysOverlays, ", "))
-		err := BuildOverlay(n.Id(), "system", sysOverlays)
+		err := BuildOverlay(n, "system", sysOverlays)
 		if err != nil {
 			return errors.Wrapf(err, "could not build system overlays %v for node %s", sysOverlays, n.Id())
 		}
 		runOverlays := n.RuntimeOverlay
 		wwlog.Info("Building runtime overlays for %s: [%s]", n.Id(), strings.Join(runOverlays, ", "))
-		err = BuildOverlay(n.Id(), "runtime", runOverlays)
+		err = BuildOverlay(n, "runtime", runOverlays)
 		if err != nil {
 			return errors.Wrapf(err, "could not build runtime overlays %v for node %s", runOverlays, n.Id())
 		}
@@ -48,13 +48,13 @@ func BuildAllOverlays(nodes []node.NodeConf) error {
 
 // TODO: Add an Overlay Delete for both sourcedir and image
 
-func BuildSpecificOverlays(nodes []string, overlayNames []string) error {
+func BuildSpecificOverlays(nodes []node.NodeConf, overlayNames []string) error {
 	for _, n := range nodes {
 		wwlog.Info("Building overlay for %s: %v", n, overlayNames)
 		for _, overlayName := range overlayNames {
 			err := BuildOverlay(n, "", []string{overlayName})
 			if err != nil {
-				return errors.Wrapf(err, "could not build overlay %s for node %s", overlayName, n)
+				return errors.Wrapf(err, "could not build overlay %s for node %s", overlayName, n.Id())
 			}
 		}
 	}
@@ -66,7 +66,7 @@ Build overlay for the host, so no argument needs to be given
 */
 func BuildHostOverlay() error {
 	hostname, _ := os.Hostname()
-
+	hostData := node.NewConf(hostname)
 	wwlog.Info("Building overlay for %s: host", hostname)
 	hostdir := OverlaySourceDir("host")
 	stats, err := os.Stat(hostdir)
@@ -76,7 +76,7 @@ func BuildHostOverlay() error {
 	if !(stats.Mode() == os.FileMode(0750|os.ModeDir) || stats.Mode() == os.FileMode(0700|os.ModeDir)) {
 		wwlog.SecWarn("Permissions of host overlay dir %s are %s (750 is considered as secure)", hostdir, stats.Mode())
 	}
-	return BuildOverlayIndir(hostname, []string{"host"}, "/")
+	return BuildOverlayIndir(hostData, []string{"host"}, "/")
 }
 
 /*
@@ -121,13 +121,13 @@ func OverlayInit(overlayName string) error {
 /*
 Build the given overlays for a node and create a Image for them
 */
-func BuildOverlay(nodeId string, context string, overlayNames []string) error {
+func BuildOverlay(nodeConf node.NodeConf, context string, overlayNames []string) error {
 	if len(overlayNames) == 0 {
 		return nil
 	}
 	// create the dir where the overlay images will reside
-	name := fmt.Sprintf("overlay %s/%v", nodeId, overlayNames)
-	overlayImage := OverlayImage(nodeId, context, overlayNames)
+	name := fmt.Sprintf("overlay %s/%v", nodeConf, overlayNames)
+	overlayImage := OverlayImage(nodeConf.Id(), context, overlayNames)
 	overlayImageDir := path.Dir(overlayImage)
 
 	err := os.MkdirAll(overlayImageDir, 0755)
@@ -145,7 +145,7 @@ func BuildOverlay(nodeId string, context string, overlayNames []string) error {
 
 	wwlog.Debug("Created temporary directory for %s: %s", name, buildDir)
 
-	err = BuildOverlayIndir(nodeId, overlayNames, buildDir)
+	err = BuildOverlayIndir(nodeConf, overlayNames, buildDir)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to generate files for %s", name)
 	}
@@ -169,7 +169,7 @@ func BuildOverlay(nodeId string, context string, overlayNames []string) error {
 Build the given overlays for a node in the given directory. If the given does not
 exists it will be created.
 */
-func BuildOverlayIndir(nodeId string, overlayNames []string, outputDir string) error {
+func BuildOverlayIndir(nodeData node.NodeConf, overlayNames []string, outputDir string) error {
 	if len(overlayNames) == 0 {
 		return nil
 	}
@@ -184,9 +184,9 @@ func BuildOverlayIndir(nodeId string, overlayNames []string, outputDir string) e
 	// Temporarily set umask to 0000, so directories in the overlay retain permissions
 	defer syscall.Umask(syscall.Umask(0))
 
-	wwlog.Verbose("Processing node/overlay: %s/%s", nodeId, strings.Join(overlayNames, "-"))
+	wwlog.Verbose("Processing node/overlay: %s/%s", nodeData.Id(), strings.Join(overlayNames, "-"))
 	for _, overlayName := range overlayNames {
-		wwlog.Verbose("Building overlay %s for node %s in %s", overlayName, nodeId, outputDir)
+		wwlog.Verbose("Building overlay %s for node %s in %s", overlayName, nodeData.Id(), outputDir)
 		overlaySourceDir := OverlaySourceDir(overlayName)
 		wwlog.Debug("Changing directory to OverlayDir: %s", overlaySourceDir)
 		err := os.Chdir(overlaySourceDir)
@@ -217,9 +217,9 @@ func BuildOverlayIndir(nodeId string, overlayNames []string, outputDir string) e
 				wwlog.Debug("Created directory in overlay: %s", location)
 
 			} else if filepath.Ext(location) == ".ww" {
-				tstruct, err := InitStruct(nodeId)
+				tstruct, err := InitStruct(nodeData)
 				if err != nil {
-					return errors.Wrap(err, fmt.Sprintf("failed to initial data for %s", nodeId))
+					return errors.Wrap(err, fmt.Sprintf("failed to initial data for %s", nodeData.Id()))
 				}
 				tstruct.BuildSource = path.Join(overlaySourceDir, location)
 				wwlog.Verbose("Evaluating overlay template file: %s", location)

@@ -128,7 +128,7 @@ func createFlags(baseCmd *cobra.Command, excludeList []string,
 					if !util.InSlice(GetUnsetVerbs(), *ptr) && *ptr != "" {
 						ipval := net.ParseIP(*ptr)
 						if ipval == nil {
-							return fmt.Errorf("commandline option %s needs to be an IP address", myType.Tag.Get("lopt"))
+							return fmt.Errorf("commandl ine option %s needs to be an IP address", myType.Tag.Get("lopt"))
 						}
 						*ptr = ipval.String()
 					}
@@ -212,12 +212,12 @@ func createFlags(baseCmd *cobra.Command, excludeList []string,
 				baseCmd.PersistentFlags().StringSliceVarP(ptr,
 					myType.Tag.Get("lopt"),
 					myType.Tag.Get("sopt"),
-					[]string{myType.Tag.Get("default")},
+					[]string{},
 					myType.Tag.Get("comment"))
 			} else if !util.InSlice(excludeList, myType.Tag.Get("lopt")) {
 				baseCmd.PersistentFlags().StringSliceVar(ptr,
 					myType.Tag.Get("lopt"),
-					[]string{myType.Tag.Get("default")},
+					[]string{},
 					myType.Tag.Get("comment"))
 
 			}
