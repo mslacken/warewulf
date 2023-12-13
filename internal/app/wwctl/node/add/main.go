@@ -21,11 +21,13 @@ the required type is returned
 func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		// run converters for different types
-		for _, c := range vars.converters {
-			if err := c(); err != nil {
-				return err
+		/*
+			for _, c := range vars.converters {
+				if err := c(); err != nil {
+					return err
+				}
 			}
-		}
+		*/
 		// remove the UNDEF network as all network values are assigned
 		// to this network
 		if !node.ObjectIsEmpty(vars.nodeConf.NetDevs["UNDEF"]) {
@@ -56,6 +58,9 @@ func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("partition and disk must be specified")
 		}
 		delete(vars.nodeConf.Disks, "UNDEF")
+		if len(vars.nodeConf.Profiles) == 0 {
+			vars.nodeConf.Profiles = []string{"default"}
+		}
 		buffer, err := yaml.Marshal(vars.nodeConf)
 		if err != nil {
 			wwlog.Error("Can't marshall nodeInfo", err)

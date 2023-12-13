@@ -43,7 +43,7 @@ type TemplateStruct struct {
 /*
 Initialize an TemplateStruct with the given node.NodeInfo
 */
-func InitStruct(nodeId string) (TemplateStruct, error) {
+func InitStruct(nodeData node.NodeConf) (TemplateStruct, error) {
 	var tstruct TemplateStruct
 	hostname, _ := os.Hostname()
 	tstruct.BuildHost = hostname
@@ -52,20 +52,14 @@ func InitStruct(nodeId string) (TemplateStruct, error) {
 	if err != nil {
 		return tstruct, err
 	}
-	thisNode, err := nodeDB.GetNode(nodeId)
-	if err == ErrDoesNotExist {
-		thisNode = node.NewConf(hostname)
-	} else if err == nil {
-		return tstruct, err
-	}
-	tstruct.ThisNode = &thisNode
+	tstruct.ThisNode = &nodeData
 	allNodes, err := nodeDB.FindAllNodes()
 	if err != nil {
 		return tstruct, err
 	}
 	// init some convenience vars
-	tstruct.Id = thisNode.Id()
-	tstruct.Hostname = thisNode.Id()
+	tstruct.Id = nodeData.Id()
+	tstruct.Hostname = nodeData.Id()
 	// Backwards compatibility for templates using "Keys"
 	tstruct.AllNodes = allNodes
 	dt := time.Now()
@@ -75,7 +69,7 @@ func InitStruct(nodeId string) (TemplateStruct, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	dec := gob.NewDecoder(&buf)
-	err = enc.Encode(thisNode)
+	err = enc.Encode(nodeData)
 	if err != nil {
 		return tstruct, err
 	}

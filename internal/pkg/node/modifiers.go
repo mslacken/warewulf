@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/hpcng/warewulf/internal/pkg/wwlog"
 )
@@ -13,12 +13,14 @@ import (
 Add a node with the given ID and return a pointer to it
 */
 func (config *NodeYaml) AddNode(nodeID string) (*NodeConf, error) {
-	node := NewConf(nodeID)
+	newNode := NewConf(nodeID)
 	wwlog.Verbose("Adding new node: %s", nodeID)
 	if _, ok := config.Nodes[nodeID]; ok {
 		return nil, errors.New("nodename already exists: " + nodeID)
+	} else {
+		config.Nodes[nodeID] = &newNode
 	}
-	return &node, nil
+	return &newNode, nil
 }
 
 /*

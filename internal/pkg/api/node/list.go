@@ -36,7 +36,7 @@ func NodeList(nodeGet *wwapiv1.GetNodeList) (nodeList wwapiv1.NodeList, err erro
 			}
 			sort.Strings(netNames)
 			nodeList.Output = append(nodeList.Output,
-				fmt.Sprintf("%s:=:%s:=:%s", n.Id, n.Profiles, strings.Join(netNames, ", ")))
+				fmt.Sprintf("%s:=:%s:=:%s", n.Id(), n.Profiles, strings.Join(netNames, ", ")))
 		}
 	} else if nodeGet.Type == wwapiv1.GetNodeList_Network {
 		nodeList.Output = append(nodeList.Output,
@@ -52,7 +52,8 @@ func NodeList(nodeGet *wwapiv1.GetNodeList) (nodeList wwapiv1.NodeList, err erro
 							n.NetDevs[name].Device))
 				}
 			} else {
-				fmt.Printf("%s:=:%s:=:%s:=:%s:=:%s:=:%s", n.Id, "--", "--", "--", "--", "--")
+				nodeList.Output = append(nodeList.Output,
+					fmt.Sprintf("%s:=:%s:=:%s:=:%s:=:%s:=:%s", n.Id(), "--", "--", "--", "--", "--"))
 			}
 		}
 	} else if nodeGet.Type == wwapiv1.GetNodeList_Ipmi {
@@ -60,7 +61,7 @@ func NodeList(nodeGet *wwapiv1.GetNodeList) (nodeList wwapiv1.NodeList, err erro
 			fmt.Sprintf("%s:=:%s:=:%s:=:%s:=:%s", "NODE NAME", "IPMI IPADDR", "IPMI PORT", "IPMI USERNAME", "IPMI INTERFACE"))
 		for _, n := range node.FilterByName(nodes, nodeGet.Nodes) {
 			nodeList.Output = append(nodeList.Output,
-				fmt.Sprintf("%s:=:%s:=:%s:=:%s:=:%s:=:%s", n.Id,
+				fmt.Sprintf("%s:=:%s:=:%s:=:%s:=:%s:=:%s", n.Id(),
 					n.Ipmi.Ipaddr,
 					n.Ipmi.Port,
 					n.Ipmi.UserName,
@@ -72,7 +73,7 @@ func NodeList(nodeGet *wwapiv1.GetNodeList) (nodeList wwapiv1.NodeList, err erro
 			fmt.Sprintf("%s:=:%s:=:%s:=:%s", "NODE NAME", "KERNEL OVERRIDE", "CONTAINER", "OVERLAYS (S/R)"))
 		for _, n := range node.FilterByName(nodes, nodeGet.Nodes) {
 			nodeList.Output = append(nodeList.Output,
-				fmt.Sprintf("%s:=:%s:=:%s:=:%s", n.Id,
+				fmt.Sprintf("%s:=:%s:=:%s:=:%s", n.Id(),
 					n.Kernel.Override,
 					n.ContainerName,
 					strings.Join(n.SystemOverlay, ",")+"/"+strings.Join(n.RuntimeOverlay, ",")))
@@ -84,7 +85,7 @@ func NodeList(nodeGet *wwapiv1.GetNodeList) (nodeList wwapiv1.NodeList, err erro
 			fields := nodeDB.GetFields(n, nodeGet.Type == wwapiv1.GetNodeList_All)
 			for _, f := range fields {
 				nodeList.Output = append(nodeList.Output,
-					fmt.Sprintf("%s:=:%s:=:%s:=:%s", n.Id, f.Field, f.Source, f.Value))
+					fmt.Sprintf("%s:=:%s:=:%s:=:%s", n.Id(), f.Field, f.Source, f.Value))
 			}
 		}
 	}

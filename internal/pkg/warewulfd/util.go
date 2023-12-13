@@ -57,7 +57,7 @@ func getOverlayFile(n node.NodeConf, context string, stage_overlays []string, au
 	}
 
 	if build {
-		err = overlay.BuildOverlay(n.Id(), context, stage_overlays)
+		err = overlay.BuildOverlay(n, context, stage_overlays)
 		if err != nil {
 			wwlog.Error("Failed to build overlay: %s, %s, %s\n%s",
 				n.Id(), stage_overlays, stage_file, err)

@@ -49,12 +49,12 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		if len(OverlayNames) == 0 {
 			// TODO: should this behave the same as OverlayDir == "", and build default
 			// set to overlays?
-			return errors.New("Must specify overlay(s) to build")
+			return errors.New("must specify overlay(s) to build")
 		}
 
 		if len(args) > 0 {
 			if len(db) != 1 {
-				return errors.New("Must specify one node to build overlay")
+				return errors.New("nust specify one node to build overlay")
 			}
 
 			for _, node := range db {
@@ -64,7 +64,7 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 			// TODO this seems different than what is set in BuildHostOverlay
 			hostname, _ := os.Hostname()
 			node := node.NewConf(hostname)
-			wwlog.Info("Building overlay for host: %s", hostname)
+			wwlog.Info("building overlay for host: %s", hostname)
 			return overlay.BuildOverlayIndir(node, OverlayNames, OverlayDir)
 
 		}

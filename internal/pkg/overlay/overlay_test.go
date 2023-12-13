@@ -156,7 +156,7 @@ func Test_BuildOverlay(t *testing.T) {
 			defer os.RemoveAll(provisionDir)
 			conf.Paths.WWProvisiondir = provisionDir
 
-			err := BuildOverlay(nodeInfo.Id(), tt.context, tt.overlays)
+			err := BuildOverlay(nodeInfo, tt.context, tt.overlays)
 			assert.NoError(t, err)
 			if tt.image != "" {
 				image := path.Join(provisionDir, "overlays", tt.image)
@@ -364,7 +364,13 @@ func Test_BuildSpecificOverlays(t *testing.T) {
 			assert.NoError(t, provisionDirErr)
 			defer os.RemoveAll(provisionDir)
 			conf.Paths.WWProvisiondir = provisionDir
-			err := BuildSpecificOverlays(tt.nodes, tt.overlays)
+
+			var nodes []node.NodeConf
+			for _, nodeName := range tt.nodes {
+				nodeInfo := node.NewConf(nodeName)
+				nodes = append(nodes, nodeInfo)
+			}
+			err := BuildSpecificOverlays(nodes, tt.overlays)
 			if !tt.succeed {
 				assert.Error(t, err)
 			} else {
