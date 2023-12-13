@@ -27,7 +27,7 @@ type variables struct {
 // GetRootCommand returns the root cobra.Command for the application.
 func GetCommand() *cobra.Command {
 	vars := variables{}
-	vars.profileConf = node.NewConf()
+	vars.profileConf = node.NewConf("")
 	baseCmd := &cobra.Command{
 		DisableFlagsInUseLine: true,
 		Use:                   "add PROFILE",

@@ -51,7 +51,7 @@ func GetRootCommand() *cobra.Command {
 }
 
 func CobraRunE(cmd *cobra.Command, args []string) (err error) {
-	conf := warewulfconf.Get()
+	conf := warewulfconf
 	if WarewulfConfArg != "" {
 		err = conf.Read(WarewulfConfArg)
 	} else if os.Getenv("WAREWULFCONF") != "" {

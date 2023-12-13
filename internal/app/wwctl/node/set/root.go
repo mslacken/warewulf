@@ -45,7 +45,7 @@ func GetCommand() *cobra.Command {
 			nodes, _ := nodeDB.FindAllNodes()
 			var node_names []string
 			for _, node := range nodes {
-				node_names = append(node_names, node.Id.Get())
+				node_names = append(node_names, node.Id())
 			}
 			return node_names, cobra.ShellCompDirectiveNoFileComp
 		},
@@ -93,7 +93,7 @@ func GetCommand() *cobra.Command {
 		nodeDB, _ := node.New()
 		profiles, _ := nodeDB.FindAllProfiles()
 		for _, profile := range profiles {
-			list = append(list, profile.Id.Get())
+			list = append(list, profile.Id())
 		}
 		return list, cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {

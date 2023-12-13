@@ -1,11 +1,12 @@
 package oci
 
 import (
-	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 	"path/filepath"
+
+	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 )
 
-var defaultCachePath = filepath.Join(warewulfconf.Get().Warewulf.DataStore, "/container-cache/oci/")
+var defaultCachePath = filepath.Join(warewulfconf.Warewulf.DataStore, "/container-cache/oci/")
 
 const (
 	blobPrefix   = "blobs"

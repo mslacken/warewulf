@@ -67,7 +67,7 @@ func GetCommand() *cobra.Command {
 		nodeDB, _ := node.New()
 		profiles, _ := nodeDB.FindAllProfiles()
 		for _, profile := range profiles {
-			list = append(list, profile.Id.Get())
+			list = append(list, profile.Id())
 		}
 		return list, cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {

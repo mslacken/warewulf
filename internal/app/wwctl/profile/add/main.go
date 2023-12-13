@@ -66,18 +66,18 @@ func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) (err err
 			wwlog.Error("Cant marshall nodeInfo", err)
 			os.Exit(1)
 		}
-		set := wwapiv1.ProfileSetParameter{
+		set := wwapiv1.ConfSetParameter{
 			NodeConfYaml: string(buffer[:]),
 			NetdevDelete: vars.SetNetDevDel,
-			AllProfiles:  vars.SetNodeAll,
+			AllConfs:     vars.SetNodeAll,
 			Force:        vars.SetForce,
-			ProfileNames: args,
+			ConfList:     args,
 		}
 
 		if !vars.SetYes {
 			// The checks run twice in the prompt case.
 			// Avoiding putting in a blocking prompt in an API.
-			_, _, err = apiprofile.ProfileSetParameterCheck(&set, false)
+			_, _, err = apiprofile.ProfileSetParameterCheck(&set)
 			if err != nil {
 				return
 			}

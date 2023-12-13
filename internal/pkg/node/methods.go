@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strings"
+
+	"github.com/hpcng/warewulf/internal/pkg/util"
 )
 
 type sortByName []NodeConf
@@ -146,6 +149,74 @@ func recursiveFlatten(strct interface{}) {
 }
 
 /*
+Create a string slice, where every element represents a yaml entry, used for node/profile edit
+in order to get a summary of all available elements
+*/
+func UnmarshalConf(obj interface{}, excludeList []string) (lines []string) {
+	objType := reflect.TypeOf(obj)
+	// now iterate of every field
+	for i := 0; i < objType.NumField(); i++ {
+		if objType.Field(i).Tag.Get("comment") != "" {
+			if ymlStr, ok := getYamlString(objType.Field(i), excludeList); ok {
+				lines = append(lines, ymlStr...)
+			}
+		}
+		if objType.Field(i).Type.Kind() == reflect.Ptr && objType.Field(i).Tag.Get("yaml") != "" {
+			typeLine := objType.Field(i).Tag.Get("yaml")
+			if len(strings.Split(typeLine, ",")) > 1 {
+				typeLine = strings.Split(typeLine, ",")[0] + ":"
+			}
+			lines = append(lines, typeLine)
+			nestedLine := UnmarshalConf(reflect.New(objType.Field(i).Type.Elem()).Elem().Interface(), excludeList)
+			for _, ln := range nestedLine {
+				lines = append(lines, "  "+ln)
+			}
+		} else if objType.Field(i).Type.Kind() == reflect.Map && objType.Field(i).Type.Elem().Kind() == reflect.Ptr {
+			typeLine := objType.Field(i).Tag.Get("yaml")
+			if len(strings.Split(typeLine, ",")) > 1 {
+				typeLine = strings.Split(typeLine, ",")[0] + ":"
+			}
+			lines = append(lines, typeLine, "  element:")
+			nestedLine := UnmarshalConf(reflect.New(objType.Field(i).Type.Elem().Elem()).Elem().Interface(), excludeList)
+			for _, ln := range nestedLine {
+				lines = append(lines, "    "+ln)
+			}
+		}
+	}
+	return lines
+}
+
+/*
+Get the string of the yaml tag
+*/
+func getYamlString(myType reflect.StructField, excludeList []string) ([]string, bool) {
+	ymlStr := myType.Tag.Get("yaml")
+	if len(strings.Split(ymlStr, ",")) > 1 {
+		ymlStr = strings.Split(ymlStr, ",")[0]
+	}
+	if util.InSlice(excludeList, ymlStr) {
+		return []string{""}, false
+	} else if myType.Tag.Get("comment") == "" && myType.Type.Kind() == reflect.String {
+		return []string{""}, false
+	}
+	if myType.Type.Kind() == reflect.String {
+		fieldType := myType.Tag.Get("type")
+		if fieldType == "" {
+			fieldType = "string"
+		}
+		ymlStr += ": " + fieldType
+		return []string{ymlStr}, true
+	} else if myType.Type == reflect.TypeOf([]string{}) {
+		return []string{ymlStr + ":", "  - string"}, true
+	} else if myType.Type == reflect.TypeOf(map[string]string{}) {
+		return []string{ymlStr + ":", "  key: value"}, true
+	} else if myType.Type.Kind() == reflect.Ptr {
+		return []string{ymlStr + ":"}, true
+	}
+	return []string{ymlStr}, true
+}
+
+/*
 Getters for unexported fields
 */
 
@@ -161,4 +232,11 @@ Returns if the node is a valid in the database
 */
 func (node *NodeConf) Valid() bool {
 	return node.valid
+}
+
+/*
+Check if the netdev is the primary one
+*/
+func (dev *NetDevs) Primary() bool {
+	return dev.primary
 }

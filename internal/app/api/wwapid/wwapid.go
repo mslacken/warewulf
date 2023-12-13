@@ -15,7 +15,6 @@ import (
 	"github.com/hpcng/warewulf/internal/pkg/api/container"
 	apinode "github.com/hpcng/warewulf/internal/pkg/api/node"
 	"github.com/hpcng/warewulf/internal/pkg/api/routes/wwapiv1"
-	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 	"github.com/hpcng/warewulf/internal/pkg/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -34,7 +33,7 @@ var apiVersion string
 func main() {
 	log.Println("Server running")
 
-	conf := warewulfconf.Get()
+	conf := warewulfconf
 	// Read the config file.
 	config, err := apiconfig.NewServer(path.Join(conf.Paths.Sysconfdir, "warewulf/wwapid.conf"))
 	if err != nil {

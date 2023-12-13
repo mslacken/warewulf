@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 	"github.com/hpcng/warewulf/internal/pkg/node"
 	"github.com/hpcng/warewulf/internal/pkg/overlay"
 	"github.com/hpcng/warewulf/internal/pkg/wwlog"
@@ -14,7 +13,7 @@ import (
 )
 
 func CobraRunE(cmd *cobra.Command, args []string) error {
-	controller := warewulfconf.Get()
+	controller := warewulfconf
 	nodeDB, err := node.New()
 	if err != nil {
 		wwlog.Error("Could not open node configuration: %s", err)

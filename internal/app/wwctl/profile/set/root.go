@@ -28,7 +28,7 @@ type variables struct {
 
 func GetCommand() *cobra.Command {
 	vars := variables{}
-	vars.profileConf = node.NewConf()
+	vars.profileConf = node.NewConf("")
 
 	baseCmd := &cobra.Command{
 		Use:   "set [OPTIONS] [PROFILE ...]",
@@ -43,15 +43,10 @@ func GetCommand() *cobra.Command {
 			}
 
 			nodeDB, _ := node.New()
-			profiles, _ := nodeDB.FindAllProfiles()
-			var p_names []string
-			for _, profile := range profiles {
-				p_names = append(p_names, profile.Id.Get())
-			}
-			return p_names, cobra.ShellCompDirectiveNoFileComp
+			profiles := nodeDB.ListAllProfiles()
+			return profiles, cobra.ShellCompDirectiveNoFileComp
 		},
 	}
-	vars.profileConf = node.NewConf()
 	vars.converters = vars.profileConf.CreateFlags(baseCmd,
 		[]string{"ipaddr", "ipaddr6", "ipmiaddr", "profile"})
 	baseCmd.PersistentFlags().StringVar(&vars.netName, "netname", "default", "Set network name for network options")
