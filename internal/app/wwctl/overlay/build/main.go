@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 	"github.com/hpcng/warewulf/internal/pkg/node"
 	"github.com/hpcng/warewulf/internal/pkg/overlay"
 	"github.com/hpcng/warewulf/internal/pkg/wwlog"
@@ -13,14 +14,14 @@ import (
 )
 
 func CobraRunE(cmd *cobra.Command, args []string) error {
-	controller := warewulfconf
+	controller := warewulfconf.Get()
 	nodeDB, err := node.New()
 	if err != nil {
 		wwlog.Error("Could not open node configuration: %s", err)
 		os.Exit(1)
 	}
 
-	nodes, err := nodeDB.FindAllNodes()
+	db, err := nodeDB.FindAllNodes()
 	if err != nil {
 		wwlog.Error("Could not get node list: %s", err)
 		os.Exit(1)
@@ -28,9 +29,9 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 
 	if len(args) > 0 {
 		args = hostlist.Expand(args)
-		nodes = node.FilterByName(nodes, args)
+		db = node.FilterByName(db, args)
 
-		if len(nodes) < len(args) {
+		if len(db) < len(args) {
 			return errors.New("Failed to find nodes")
 		}
 	}
@@ -52,22 +53,19 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 		}
 
 		if len(args) > 0 {
-			if len(nodes) != 1 {
+			if len(db) != 1 {
 				return errors.New("Must specify one node to build overlay")
 			}
 
-			for _, node := range nodes {
+			for _, node := range db {
 				return overlay.BuildOverlayIndir(node, OverlayNames, OverlayDir)
 			}
 		} else {
 			// TODO this seems different than what is set in BuildHostOverlay
-			var host node.NodeInfo
-			var idEntry node.Entry
 			hostname, _ := os.Hostname()
+			node := node.NewConf(hostname)
 			wwlog.Info("Building overlay for host: %s", hostname)
-			idEntry.Set(hostname)
-			host.Id = idEntry
-			return overlay.BuildOverlayIndir(host, OverlayNames, OverlayDir)
+			return overlay.BuildOverlayIndir(node, OverlayNames, OverlayDir)
 
 		}
 
@@ -82,9 +80,9 @@ func CobraRunE(cmd *cobra.Command, args []string) error {
 
 	if BuildNodes || (!BuildHost && !BuildNodes) {
 		if len(OverlayNames) > 0 {
-			err = overlay.BuildSpecificOverlays(nodes, OverlayNames)
+			err = overlay.BuildSpecificOverlays(db, OverlayNames)
 		} else {
-			err = overlay.BuildAllOverlays(nodes)
+			err = overlay.BuildAllOverlays(db)
 		}
 
 		if err != nil {

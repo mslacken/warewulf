@@ -28,7 +28,7 @@ type variables struct {
 
 func GetCommand() *cobra.Command {
 	vars := variables{}
-	vars.nodeConf = node.NewConf()
+	vars.nodeConf = node.NewConf("")
 	baseCmd := &cobra.Command{
 		DisableFlagsInUseLine: true,
 		Use:                   "set [OPTIONS] PATTERN [PATTERN ...]",

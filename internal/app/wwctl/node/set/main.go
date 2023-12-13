@@ -58,23 +58,23 @@ func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) (err err
 			os.Exit(1)
 		}
 		wwlog.Debug("sending following values: %s", string(buffer))
-		set := wwapiv1.NodeSetParameter{
+		set := wwapiv1.ConfSetParameter{
 			NodeConfYaml: string(buffer[:]),
 
 			NetdevDelete:     vars.setNetDevDel,
 			PartitionDelete:  vars.setPartDel,
 			DiskDelete:       vars.setDiskDel,
 			FilesystemDelete: vars.setFsDel,
-			AllNodes:         vars.setNodeAll,
+			AllConfs:         vars.setNodeAll,
 			Force:            vars.setForce,
-			NodeNames:        args,
+			ConfList:         args,
 		}
 
 		if !vars.setYes {
 			var nodeCount uint
 			// The checks run twice in the prompt case.
 			// Avoiding putting in a blocking prompt in an API.
-			_, nodeCount, err = apinode.NodeSetParameterCheck(&set, false)
+			_, nodeCount, err = apinode.NodeSetParameterCheck(&set)
 			if err != nil {
 				return nil
 			}

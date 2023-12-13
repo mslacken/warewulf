@@ -33,7 +33,7 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 		wwlog.Error("Unknown Warewulf container: %s", containerName)
 		os.Exit(1)
 	}
-	conf := warewulfconf
+	conf := warewulfconf.Get()
 	mountPts := conf.MountsContainer
 	mountPts = append(container.InitMountPnts(binds), mountPts...)
 	// check for valid mount points
@@ -95,8 +95,8 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 			wwlog.Error("No single node idendified with %s", nodename)
 			os.Exit(1)
 		}
-		overlays := nodes[0].SystemOverlay.GetSlice()
-		overlays = append(overlays, nodes[0].RuntimeOverlay.GetSlice()...)
+		overlays := nodes[0].SystemOverlay
+		overlays = append(overlays, nodes[0].RuntimeOverlay...)
 		err = overlay.BuildOverlayIndir(nodes[0], overlays, path.Join(overlayDir, "nodeoverlay"))
 		if err != nil {
 			wwlog.Error("Could not build overlay: %s", err)

@@ -2,7 +2,6 @@ package genconf
 
 import (
 	"github.com/hpcng/warewulf/internal/app/wwctl/genconf/completions"
-	"github.com/hpcng/warewulf/internal/app/wwctl/genconf/dfaults"
 	"github.com/hpcng/warewulf/internal/app/wwctl/genconf/man"
 	"github.com/hpcng/warewulf/internal/app/wwctl/genconf/reference"
 	"github.com/hpcng/warewulf/internal/app/wwctl/genconf/warewulfconf"
@@ -25,7 +24,6 @@ func init() {
 	baseCmd.AddCommand(completions.GetCommand())
 	baseCmd.AddCommand(man.GetCommand())
 	baseCmd.AddCommand(reference.GetCommand())
-	baseCmd.AddCommand(dfaults.GetCommand())
 	baseCmd.AddCommand(warewulfconf.GetCommand())
 }
 

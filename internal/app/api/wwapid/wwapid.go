@@ -15,6 +15,7 @@ import (
 	"github.com/hpcng/warewulf/internal/pkg/api/container"
 	apinode "github.com/hpcng/warewulf/internal/pkg/api/node"
 	"github.com/hpcng/warewulf/internal/pkg/api/routes/wwapiv1"
+	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
 	"github.com/hpcng/warewulf/internal/pkg/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -33,7 +34,7 @@ var apiVersion string
 func main() {
 	log.Println("Server running")
 
-	conf := warewulfconf
+	conf := warewulfconf.Get()
 	// Read the config file.
 	config, err := apiconfig.NewServer(path.Join(conf.Paths.Sysconfdir, "warewulf/wwapid.conf"))
 	if err != nil {
@@ -292,14 +293,14 @@ func (s *apiServer) NodeList(ctx context.Context, request *wwapiv1.NodeNames) (r
 }
 
 // NodeSet updates fields for zero or more nodes and returns the updated nodes.
-func (s *apiServer) NodeSet(ctx context.Context, request *wwapiv1.NodeSetParameter) (response *wwapiv1.NodeListResponse, err error) {
+func (s *apiServer) NodeSet(ctx context.Context, request *wwapiv1.ConfSetParameter) (response *wwapiv1.NodeListResponse, err error) {
 
 	// Parameter checks.
 	if request == nil {
 		return response, status.Errorf(codes.InvalidArgument, "nil request")
 	}
 
-	if request.NodeNames == nil {
+	if request.ConfList == nil {
 		return response, status.Errorf(codes.InvalidArgument, "nil request.NodeNames")
 	}
 
@@ -310,7 +311,7 @@ func (s *apiServer) NodeSet(ctx context.Context, request *wwapiv1.NodeSetParamet
 	}
 
 	// Return the updated nodes as per REST.
-	return s.nodeListInternal(request.NodeNames)
+	return s.nodeListInternal(request.ConfList)
 }
 
 func (s *apiServer) NodeStatus(ctx context.Context, request *wwapiv1.NodeNames) (response *wwapiv1.NodeStatusResponse, err error) {
