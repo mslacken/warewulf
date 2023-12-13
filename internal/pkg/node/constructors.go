@@ -121,7 +121,7 @@ func (config *NodeYaml) GetProfile(id string) (profile NodeConf, err error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	dec := gob.NewDecoder(&buf)
-	for _, p := range config.Nodes[id].Profiles {
+	for _, p := range config.NodeProfiles[id].Profiles {
 		includedProfile, err := config.GetProfile(p)
 		if err != nil {
 			return profile, err

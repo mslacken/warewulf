@@ -65,6 +65,9 @@ func AbstractSetParameterCheck(set *wwapiv1.ConfSetParameter, confMap map[string
 	for _, p := range confs {
 		if util.InSlice(set.ConfList, p) {
 			wwlog.Verbose("evaluating profile: %s", p)
+			if _, ok := confMap[p]; !ok {
+				continue
+			}
 			err = yaml.Unmarshal([]byte(set.NodeConfYaml), confMap[p])
 			if err != nil {
 				return
@@ -115,8 +118,10 @@ func AbstractSetParameterCheck(set *wwapiv1.ConfSetParameter, confMap map[string
 			for _, key := range confobject.TagsDel {
 				delete(confMap[p].Tags, key)
 			}
-			for _, key := range confobject.Ipmi.TagsDel {
-				delete(confMap[p].Ipmi.Tags, key)
+			if confobject.Ipmi != nil {
+				for _, key := range confobject.Ipmi.TagsDel {
+					delete(confMap[p].Ipmi.Tags, key)
+				}
 			}
 			for net := range confobject.NetDevs {
 				for _, key := range confobject.NetDevs[net].TagsDel {
