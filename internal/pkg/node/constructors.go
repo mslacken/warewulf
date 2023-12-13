@@ -213,6 +213,17 @@ func (config *NodeYaml) FindAllProfiles(profiles ...string) (profileList []NodeC
 }
 
 /*
+Return the names of all available nodes
+*/
+func (config *NodeYaml) ListAllNodes() []string {
+	var nodeList []string
+	for name := range config.Nodes {
+		nodeList = append(nodeList, name)
+	}
+	return nodeList
+}
+
+/*
 Return the names of all available profiles
 */
 func (config *NodeYaml) ListAllProfiles() []string {
