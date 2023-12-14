@@ -7,7 +7,6 @@ import (
 	"github.com/hpcng/warewulf/internal/pkg/node"
 	"github.com/hpcng/warewulf/internal/pkg/testenv"
 	"github.com/hpcng/warewulf/internal/pkg/warewulfd"
-	"github.com/hpcng/warewulf/internal/pkg/wwlog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -294,9 +293,7 @@ nodes:
         path: /var
 `},
 	}
-	wwlog.SetLogLevel(wwlog.DEBUG)
 	warewulfd.SetNoDaemon()
-
 	for _, tt := range tests {
 		env := testenv.New(t)
 		env.WriteFile(t, "etc/warewulf/nodes.conf",

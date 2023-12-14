@@ -115,6 +115,9 @@ func AbstractSetParameterCheck(set *wwapiv1.ConfSetParameter, confMap map[string
 				delete(confMap[p].Tags, key)
 			}
 			for key, val := range set.TagAdd {
+				if confMap[p].Tags == nil {
+					confMap[p].Tags = make(map[string]string)
+				}
 				confMap[p].Tags[key] = val
 			}
 			for key, val := range set.IpmiTagAdd {

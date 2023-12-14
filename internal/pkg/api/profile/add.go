@@ -13,30 +13,30 @@ import (
 /*
 Adds a new profile with the given name
 */
-func AddProfile(nsp *wwapiv1.ConfSetParameter) error {
+func ProfileAdd(nsp *wwapiv1.NodeAddParameter) error {
 	if nsp == nil {
-		return fmt.Errorf("NodeSetParameter is nill")
+		return fmt.Errorf("NodeAddParameter is nill")
 	}
 	nodeDB, err := node.New()
 	if err != nil {
 		return errors.Wrap(err, "Could not open database")
 	}
-
-	if util.InSlice(nodeDB.ListAllProfiles(), nsp.ConfList[0]) {
-		return errors.New(fmt.Sprintf("profile with name %s already exists", nsp.ConfList[0]))
-	}
-
-	p, err := nodeDB.AddProfile(nsp.ConfList[0])
-	if err != nil {
-		return err
-	}
-	err = yaml.Unmarshal([]byte(nsp.NodeConfYaml), &p)
-	if err != nil {
-		return errors.Wrap(err, "failed to add profile")
-	}
-	err = nodeDB.Persist()
-	if err != nil {
-		return errors.Wrap(err, "failed to persist new profile")
+	for _, p := range nsp.NodeNames {
+		if util.InSlice(nodeDB.ListAllProfiles(), p) {
+			return errors.New(fmt.Sprintf("profile with name %s already exists", nsp.NodeNames[0]))
+		}
+		pNew, err := nodeDB.AddProfile(p)
+		if err != nil {
+			return err
+		}
+		err = yaml.Unmarshal([]byte(nsp.NodeConfYaml), &pNew)
+		if err != nil {
+			return errors.Wrap(err, "failed to add profile")
+		}
+		err = nodeDB.Persist()
+		if err != nil {
+			return errors.Wrap(err, "failed to persist new profile")
+		}
 	}
 	return nil
 }

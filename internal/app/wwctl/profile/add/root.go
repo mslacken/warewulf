@@ -20,8 +20,7 @@ type variables struct {
 	fsName       string
 	partName     string
 	diskName     string
-	ProfileConf  node.NodeConf
-	Converters   []func() error
+	converters   []func() error
 }
 
 // GetRootCommand returns the root cobra.Command for the application.
@@ -36,7 +35,7 @@ func GetCommand() *cobra.Command {
 		RunE:                  CobraRunE(&vars),
 		Args:                  cobra.ExactArgs(1),
 	}
-	vars.Converters = vars.profileConf.CreateFlags(baseCmd,
+	vars.converters = vars.profileConf.CreateFlags(baseCmd,
 		[]string{"ipaddr", "ipaddr6", "ipmiaddr", "profile"})
 	baseCmd.PersistentFlags().StringVar(&vars.netName, "netname", "", "Set network name for network options")
 	baseCmd.PersistentFlags().StringVar(&vars.fsName, "fsname", "", "set the file system name which must match a partition name")
