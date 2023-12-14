@@ -1,5 +1,8 @@
 package node
 
+// string which is printed if no value is set
+const NoValue = "--"
+
 /******
  * YAML data representations
  ******/
@@ -18,7 +21,7 @@ NodeConf is the datastructure describing a node and a profile which in disk form
 type NodeConf struct {
 	// not exported values
 	id    string
-	valid bool // Is set true,if called by the constructor
+	valid bool // Is set true, if called by the constructor
 	// exported values
 	Comment        string                 `yaml:"comment,omitempty" lopt:"comment" comment:"Set arbitrary string comment"`
 	ClusterName    string                 `yaml:"cluster name,omitempty" lopt:"cluster" sopt:"c" comment:"Set cluster group"`
@@ -34,9 +37,7 @@ type NodeConf struct {
 	Discoverable   bool                   `yaml:"discoverable,omitempty" lopt:"discoverable" sopt:"e" comment:"Make discoverable in given network (true/false)"`
 	Profiles       []string               `yaml:"profiles,omitempty" lopt:"profile" sopt:"P" comment:"Set the node's profile members (comma separated)"`
 	NetDevs        map[string]*NetDevs    `yaml:"network devices,omitempty"`
-	Tags           map[string]string      `yaml:"tags,omitempty" lopt:"tagadd" comment:"base key"`
-	TagsDel        []string               `yaml:"tagsdel,omitempty" lopt:"tagdel" comment:"remove this tags"` // should not go to disk only to wire
-	Keys           map[string]string      `yaml:"keys,omitempty"`                                             // Reverse compatibility
+	Tags           map[string]string      `yaml:"tags,omitempty"` // Reverse compatibility
 	PrimaryNetDev  string                 `yaml:"primary network,omitempty" lopt:"primarynet" sopt:"p" comment:"Set the primary network interface"`
 	Disks          map[string]*Disk       `yaml:"disks,omitempty"`
 	FileSystems    map[string]*FileSystem `yaml:"filesystems,omitempty"`
@@ -52,8 +53,7 @@ type IpmiConf struct {
 	Interface  string            `yaml:"interface,omitempty" lopt:"ipmiinterface" comment:"Set the node's IPMI interface (defaults: 'lan')"`
 	EscapeChar string            `yaml:"escapechar,omitempty" lopt:"ipmiescapechar" comment:"Set the IPMI escape character (defaults: '~')"`
 	Write      bool              `yaml:"write,omitempty" lopt:"ipmiwrite" comment:"Enable the write of impi configuration (true/false)"`
-	Tags       map[string]string `yaml:"tags,omitempty" lopt:"ipmitagadd" comment:"add ipmitags"`
-	TagsDel    []string          `yaml:"tagsdel,omitempty" lopt:"ipmitagdel" comment:"remove ipmitags"` // should not go to disk only to wire
+	Tags       map[string]string `yaml:"tags,omitempty"`
 }
 type KernelConf struct {
 	Version  string `yaml:"version,omitempty"`
@@ -74,8 +74,7 @@ type NetDevs struct {
 	Gateway string            `yaml:"gateway,omitempty" lopt:"gateway" sopt:"G" comment:"Set the node's network device gateway" type:"IP"`
 	MTU     string            `yaml:"mtu,omitempty" lopt:"mtu" comment:"Set the mtu" type:"uint"`
 	primary bool              `yaml:"primary,omitempty"`
-	Tags    map[string]string `yaml:"tags,omitempty" lopt:"nettagadd" comment:"network tags"`
-	TagsDel []string          `yaml:"tagsdel,omitempty" lopt:"nettagdel" comment:"delete network tags"` // should not go to disk only to wire
+	Tags    map[string]string `yaml:"tags,omitempty"`
 }
 
 /*
@@ -113,6 +112,3 @@ type FileSystem struct {
 	Options        []string `yaml:"options,omitempty" comment:"any additional options to be passed to the format-specific mkfs utility"`
 	MountOptions   string   `yaml:"mount_options,omitempty" comment:"any special options to be passed to the mount command"`
 }
-
-// string which is printed if no value is set
-const NoValue = "--"

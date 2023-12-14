@@ -10,6 +10,7 @@ import (
 	"github.com/hpcng/warewulf/internal/pkg/api/util"
 	"github.com/hpcng/warewulf/internal/pkg/node"
 	"github.com/hpcng/warewulf/internal/pkg/wwlog"
+	"github.com/hpcng/warewulf/pkg/hostlist"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -26,29 +27,29 @@ func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) (err err
 		// to this network
 		if !node.ObjectIsEmpty(vars.nodeConf.NetDevs["UNDEF"]) {
 			netDev := *vars.nodeConf.NetDevs["UNDEF"]
-			vars.nodeConf.NetDevs[vars.netName] = &netDev
+			vars.nodeConf.NetDevs[vars.nodeAdd.Net] = &netDev
 		}
 		delete(vars.nodeConf.NetDevs, "UNDEF")
-		if vars.fsName != "" {
-			if !strings.HasPrefix(vars.fsName, "/dev") {
-				if vars.fsName == vars.partName {
-					vars.fsName = "/dev/disk/by-partlabel/" + vars.partName
+		if vars.nodeAdd.FsName != "" {
+			if !strings.HasPrefix(vars.nodeAdd.FsName, "/dev") {
+				if vars.nodeAdd.FsName == vars.nodeAdd.PartName {
+					vars.nodeAdd.FsName = "/dev/disk/by-partlabel/" + vars.nodeAdd.PartName
 				} else {
 					return fmt.Errorf("filesystems need to have a underlying blockdev")
 				}
 			}
 			fs := *vars.nodeConf.FileSystems["UNDEF"]
-			vars.nodeConf.FileSystems[vars.fsName] = &fs
+			vars.nodeConf.FileSystems[vars.nodeAdd.FsName] = &fs
 		}
 		delete(vars.nodeConf.FileSystems, "UNDEF")
-		if vars.diskName != "" && vars.partName != "" {
+		if vars.nodeAdd.DiskName != "" && vars.nodeAdd.PartName != "" {
 			prt := *vars.nodeConf.Disks["UNDEF"].Partitions["UNDEF"]
-			vars.nodeConf.Disks["UNDEF"].Partitions[vars.partName] = &prt
+			vars.nodeConf.Disks["UNDEF"].Partitions[vars.nodeAdd.PartName] = &prt
 			delete(vars.nodeConf.Disks["UNDEF"].Partitions, "UNDEF")
 			dsk := *vars.nodeConf.Disks["UNDEF"]
-			vars.nodeConf.Disks[vars.diskName] = &dsk
+			vars.nodeConf.Disks[vars.nodeAdd.DiskName] = &dsk
 		}
-		if (vars.diskName != "") != (vars.partName != "") {
+		if (vars.nodeAdd.DiskName != "") != (vars.nodeAdd.PartName != "") {
 			return fmt.Errorf("partition and disk must be specified")
 		}
 		delete(vars.nodeConf.Disks, "UNDEF")
@@ -58,13 +59,20 @@ func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) (err err
 			os.Exit(1)
 		}
 		wwlog.Debug("sending following values: %s", string(buffer))
+		args = hostlist.Expand(args)
 		set := wwapiv1.ConfSetParameter{
-			NodeConfYaml: string(buffer[:]),
+			NodeConfYaml: string(buffer),
 
-			NetdevDelete:     vars.setNetDevDel,
-			PartitionDelete:  vars.setPartDel,
-			DiskDelete:       vars.setDiskDel,
-			FilesystemDelete: vars.setFsDel,
+			NetdevDelete:     vars.nodeDel.NetDel,
+			PartitionDelete:  vars.nodeDel.PartDel,
+			DiskDelete:       vars.nodeDel.DiskDel,
+			FilesystemDelete: vars.nodeDel.FsDel,
+			TagAdd:           vars.nodeAdd.TagsAdd,
+			TagDel:           vars.nodeDel.TagsDel,
+			NetTagAdd:        vars.nodeAdd.NetTagsAdd,
+			NetTagDel:        vars.nodeDel.NetTagsDel,
+			IpmiTagAdd:       vars.nodeAdd.IpmiTagsAdd,
+			IpmiTagDel:       vars.nodeDel.IpmiTagsDel,
 			AllConfs:         vars.setNodeAll,
 			Force:            vars.setForce,
 			ConfList:         args,

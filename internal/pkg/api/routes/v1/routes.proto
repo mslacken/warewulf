@@ -185,6 +185,14 @@ message ConfSetParameter {
 	bool allConfs = 6;
 	bool force = 7;
 	repeated string confList = 8;
+	map<string, string> tagAdd = 9;
+	map<string, string> netTagAdd = 10;
+	map<string, string> ipmiTagAdd = 11;
+	repeated string tagDel = 12;
+	repeated string netTagDel = 13;
+	repeated string ipmiTagDel = 14;
+	string netdev = 15;
+
 }
 
 // NodeStatus contains information about the imaging status per node.

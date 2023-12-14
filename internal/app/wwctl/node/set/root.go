@@ -11,19 +11,13 @@ import (
 )
 
 type variables struct {
-	setNetDevDel string
-	setDiskDel   string
-	setPartDel   string
-	setFsDel     string
-	netName      string
-	partName     string
-	diskName     string
-	fsName       string
-	setNodeAll   bool
-	setYes       bool
-	setForce     bool
-	nodeConf     node.NodeConf
-	converters   []func() error
+	setNodeAll bool
+	setYes     bool
+	setForce   bool
+	nodeConf   node.NodeConf
+	nodeDel    node.NodeConfDel
+	nodeAdd    node.NodeConfAdd
+	converters []func() error
 }
 
 func GetCommand() *cobra.Command {
@@ -52,15 +46,9 @@ func GetCommand() *cobra.Command {
 	}
 
 	vars.converters = vars.nodeConf.CreateFlags(baseCmd, []string{})
-	baseCmd.PersistentFlags().StringVarP(&vars.setNetDevDel, "netdel", "D", "", "Delete the node's network device")
-	baseCmd.PersistentFlags().StringVar(&vars.netName, "netname", "default", "Set network name for network options")
+	vars.converters = vars.nodeAdd.CreateAddFlags(baseCmd)
+	vars.converters = vars.nodeDel.CreateDelFlags(baseCmd)
 	baseCmd.PersistentFlags().BoolVarP(&vars.setNodeAll, "all", "a", false, "Set all nodes")
-	baseCmd.PersistentFlags().StringVar(&vars.fsName, "fsname", "", "set the file system name which must match a partition name")
-	baseCmd.PersistentFlags().StringVar(&vars.partName, "partname", "", "set the partition name so it can be used by a file system")
-	baseCmd.PersistentFlags().StringVar(&vars.diskName, "diskname", "", "set disk device name for the partition")
-	baseCmd.PersistentFlags().StringVar(&vars.setDiskDel, "diskdel", "", "delete the disk from the configuration")
-	baseCmd.PersistentFlags().StringVar(&vars.setPartDel, "partdel", "", "delete the partition from the configuration")
-	baseCmd.PersistentFlags().StringVar(&vars.setFsDel, "fsdel", "", "delete the partition from the configuration")
 	baseCmd.PersistentFlags().BoolVarP(&vars.setYes, "yes", "y", false, "Set 'yes' to all questions asked")
 	baseCmd.PersistentFlags().BoolVarP(&vars.setForce, "force", "f", false, "Force configuration (even on error)")
 	// register the command line completions

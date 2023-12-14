@@ -19,6 +19,9 @@ func NodeSet(set *wwapiv1.ConfSetParameter) (err error) {
 	}
 	var nodeDB node.NodeYaml
 	nodeDB, _, err = NodeSetParameterCheck(set)
+	if err != nil {
+		return err
+	}
 	if err = nodeDB.Persist(); err != nil {
 		return err
 	}
@@ -61,7 +64,7 @@ func AbstractSetParameterCheck(set *wwapiv1.ConfSetParameter, confMap map[string
 	} else {
 		confs = set.ConfList
 	}
-	var confobject node.NodeConf
+	//var confobject node.NodeConf
 	for _, p := range confs {
 		if util.InSlice(set.ConfList, p) {
 			wwlog.Verbose("evaluating profile: %s", p)
@@ -82,56 +85,54 @@ func AbstractSetParameterCheck(set *wwapiv1.ConfSetParameter, confMap map[string
 				delete(confMap[p].NetDevs, set.NetdevDelete)
 			}
 			if set.PartitionDelete != "" {
-				deletedPart := false
 				for diskname, disk := range confMap[p].Disks {
 					if _, ok := disk.Partitions[set.PartitionDelete]; ok {
 						wwlog.Verbose("Node: %s, on disk %, deleting partition: %s", p, diskname, set.PartitionDelete)
-						deletedPart = true
 						delete(disk.Partitions, set.PartitionDelete)
-					}
-					if !deletedPart {
-						wwlog.Error(fmt.Sprintf("%v", err.Error()))
-						err = fmt.Errorf("partition doesn't exist: %s", set.PartitionDelete)
-						return
+					} else {
+						return count, fmt.Errorf("partition doesn't exist: %s", set.PartitionDelete)
+
 					}
 				}
 			}
 			if set.DiskDelete != "" {
-				if _, ok := confMap[p].Disks[set.DiskDelete]; !ok {
-					err = fmt.Errorf("disk doesn't exist: %s", set.DiskDelete)
-					wwlog.Error(fmt.Sprintf("%v", err.Error()))
-					return
+				if _, ok := confMap[p].Disks[set.DiskDelete]; ok {
+					wwlog.Verbose("Node: %s, deleting disk: %s", p, set.DiskDelete)
+					delete(confMap[p].Disks, set.DiskDelete)
+				} else {
+					return count, fmt.Errorf("disk doesn't exist: %s", set.DiskDelete)
 				}
-				wwlog.Verbose("Node: %s, deleting disk: %s", p, set.DiskDelete)
-				delete(confMap[p].Disks, set.DiskDelete)
 			}
 			if set.FilesystemDelete != "" {
-				if _, ok := confMap[p].FileSystems[set.FilesystemDelete]; !ok {
-					err = fmt.Errorf("disk doesn't exist: %s", set.FilesystemDelete)
-					wwlog.Error(fmt.Sprintf("%v", err.Error()))
-					return
+				if _, ok := confMap[p].FileSystems[set.FilesystemDelete]; ok {
+					wwlog.Verbose("Node: %s, deleting filesystem: %s", p, set.FilesystemDelete)
+					delete(confMap[p].FileSystems, set.FilesystemDelete)
+				} else {
+					return count, fmt.Errorf("disk doesn't exist: %s", set.FilesystemDelete)
 				}
-				wwlog.Verbose("Node: %s, deleting filesystem: %s", p, set.FilesystemDelete)
-				delete(confMap[p].FileSystems, set.FilesystemDelete)
 			}
-
-			for _, key := range confobject.TagsDel {
+			for _, key := range set.TagDel {
 				delete(confMap[p].Tags, key)
 			}
-			if confobject.Ipmi != nil {
-				for _, key := range confobject.Ipmi.TagsDel {
-					delete(confMap[p].Ipmi.Tags, key)
-				}
+			for key, val := range set.TagAdd {
+				confMap[p].Tags[key] = val
 			}
-			for net := range confobject.NetDevs {
-				for _, key := range confobject.NetDevs[net].TagsDel {
-					if _, ok := confMap[p].NetDevs[net]; ok {
-						delete(confMap[p].NetDevs[net].Tags, key)
-					}
+			for key, val := range set.IpmiTagAdd {
+				if confMap[p].Ipmi.Tags == nil {
+					confMap[p].Ipmi.Tags = make(map[string]string)
 				}
+				confMap[p].Ipmi.Tags[key] = val
 			}
-			if err != nil {
-				return
+			for _, key := range set.IpmiTagDel {
+				delete(confMap[p].Ipmi.Tags, key)
+			}
+			if _, ok := confMap[p].NetDevs[set.Netdev]; ok {
+				for _, key := range set.NetTagDel {
+					delete(confMap[p].NetDevs[set.Netdev].Tags, key)
+				}
+				for key, val := range set.TagAdd {
+					confMap[p].NetDevs[set.Netdev].Tags[key] = val
+				}
 			}
 			count++
 		}

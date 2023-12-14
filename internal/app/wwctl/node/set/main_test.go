@@ -21,7 +21,7 @@ type test_description struct {
 func run_test(t *testing.T, test test_description) {
 	env := testenv.New(t)
 	defer env.RemoveAll(t)
-
+	//wwlog.SetLogLevel(wwlog.DEBUG)
 	env.WriteFile(t, "etc/warewulf/nodes.conf", test.inDB)
 	warewulfd.SetNoDaemon()
 	name := test.name
@@ -72,7 +72,7 @@ nodes:
 	run_test(t, test)
 }
 
-func Test_Multiple_Add_Tests(t *testing.T) {
+func Test_Multiple_Set_Tests(t *testing.T) {
 	tests := []test_description{
 		{name: "single node change profile",
 			args:    []string{"--profile=foo", "n01"},
@@ -203,7 +203,7 @@ nodes:
         path: /var
 `},
 		{name: "single delete not existing fs",
-			args:    []string{"--fsdel=var", "n01"},
+			args:    []string{"--fsdel=foo", "n01"},
 			wantErr: true,
 			stdout:  "",
 			inDB: `WW_INTERNAL: 43
