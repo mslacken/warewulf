@@ -61,6 +61,7 @@ func NodeAdd(nap *wwapiv1.NodeAddParameter) (err error) {
 				// if more nodes are added increment IPv4 address
 				ipmiaddr = util.IncrementIPv4(ipmiaddr, 1)
 				wwlog.Verbose("Incremented IP addr to %s", ipmiaddr)
+				n.Ipmi.Ipaddr = ipmiaddr
 			} else {
 				ipmiaddr = n.Ipmi.Ipaddr
 			}

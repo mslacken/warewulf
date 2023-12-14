@@ -250,6 +250,20 @@ func createFlags(baseCmd *cobra.Command, excludeList []string,
 					myType.Tag.Get("comment"))
 			}
 
+		} else if myType.Type == reflect.TypeOf(true) {
+			ptr := myVal.Addr().Interface().(*bool)
+			if myType.Tag.Get("sopt") != "" {
+				baseCmd.PersistentFlags().BoolVarP(ptr,
+					myType.Tag.Get("lopt"),
+					myType.Tag.Get("sopt"),
+					false, // empty default!
+					myType.Tag.Get("comment"))
+			} else if !util.InSlice(excludeList, myType.Tag.Get("lopt")) {
+				baseCmd.PersistentFlags().BoolVar(ptr,
+					myType.Tag.Get("lopt"),
+					false, // empty default!
+					myType.Tag.Get("comment"))
+			}
 		}
 	}
 	return converters
