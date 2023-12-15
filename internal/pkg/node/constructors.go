@@ -23,7 +23,7 @@ Creates a new nodeDb object from the on-disk configuration
 func New() (NodeYaml, error) {
 	conf := warewulfconf.Get()
 	if ConfigFile == "" {
-		ConfigFile = path.Join(conf.Paths.Sysconfdir, "warewulf/profiles.conf")
+		ConfigFile = path.Join(conf.Paths.Sysconfdir, "warewulf/nodes.conf")
 	}
 	wwlog.Verbose("Opening node configuration file: %s", ConfigFile)
 	data, err := os.ReadFile(ConfigFile)
@@ -112,6 +112,7 @@ func (config *NodeYaml) GetNode(id string) (node NodeConf, err error) {
 	}
 	// finally set no exported values
 	node.id = id
+	node.valid = true
 	if netdev, ok := node.NetDevs[node.PrimaryNetDev]; ok {
 		netdev.primary = true
 	} else {

@@ -40,6 +40,9 @@ func loadNodeDB() (err error) {
 	}
 
 	for _, n := range nodes {
+		if n.Discoverable {
+			continue
+		}
 		for _, netdev := range n.NetDevs {
 			hwaddr := strings.ToLower(netdev.Hwaddr)
 			TmpMap[hwaddr] = n
@@ -47,7 +50,6 @@ func loadNodeDB() (err error) {
 	}
 
 	db.NodeInfo = TmpMap
-
 	return nil
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	warewulfconf "github.com/hpcng/warewulf/internal/pkg/config"
-	"github.com/hpcng/warewulf/internal/pkg/node"
+	"github.com/hpcng/warewulf/internal/pkg/testenv"
 )
 
 var provisionSendTests = []struct {
@@ -27,33 +27,25 @@ var provisionSendTests = []struct {
 }
 
 func Test_ProvisionSend(t *testing.T) {
-	file, err := os.CreateTemp(os.TempDir(), "ww-test-nodes.conf-*")
-	assert.NoError(t, err)
-	defer file.Close()
-	{
-		_, err := file.WriteString(`WW_INTERNAL: 43
+	env := testenv.New(t)
+	// wwlog.SetLogLevel(wwlog.DEBUG)
+	env.WriteFile(t, "etc/warewulf/nodes.conf", `
 nodes:
   n1:
     network devices:
       default:
         hwaddr: 00:00:00:ff:ff:ff`)
-		assert.NoError(t, err)
-	}
-	assert.NoError(t, file.Sync())
-	node.ConfigFile = file.Name()
+	SetNoDaemon()
+
 	dbErr := LoadNodeDB()
 	assert.NoError(t, dbErr)
 
-	provisionDir, provisionDirErr := os.MkdirTemp(os.TempDir(), "ww-test-provision-*")
-	assert.NoError(t, provisionDirErr)
-	defer os.RemoveAll(provisionDir)
 	conf := warewulfconf.Get()
-	conf.Paths.WWProvisiondir = provisionDir
 	conf.Warewulf.Secure = false
-	assert.NoError(t, os.MkdirAll(path.Join(provisionDir, "overlays", "n1"), 0700))
-	assert.NoError(t, os.WriteFile(path.Join(provisionDir, "overlays", "n1", "__SYSTEM__.img"), []byte("system overlay"), 0600))
-	assert.NoError(t, os.WriteFile(path.Join(provisionDir, "overlays", "n1", "__RUNTIME__.img"), []byte("runtime overlay"), 0600))
-	assert.NoError(t, os.WriteFile(path.Join(provisionDir, "overlays", "n1", "o1.img"), []byte("specific overlay"), 0600))
+	assert.NoError(t, os.MkdirAll(path.Join(conf.Paths.WWProvisiondir, "overlays", "n1"), 0700))
+	assert.NoError(t, os.WriteFile(path.Join(conf.Paths.WWProvisiondir, "overlays", "n1", "__SYSTEM__.img"), []byte("system overlay"), 0600))
+	assert.NoError(t, os.WriteFile(path.Join(conf.Paths.WWProvisiondir, "overlays", "n1", "__RUNTIME__.img"), []byte("runtime overlay"), 0600))
+	assert.NoError(t, os.WriteFile(path.Join(conf.Paths.WWProvisiondir, "overlays", "n1", "o1.img"), []byte("specific overlay"), 0600))
 
 	for _, tt := range provisionSendTests {
 		t.Run(tt.description, func(t *testing.T) {

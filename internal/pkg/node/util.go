@@ -3,6 +3,7 @@ package node
 import (
 	"errors"
 	"net"
+	"reflect"
 	"strings"
 )
 
@@ -50,12 +51,35 @@ func (config *NodeYaml) FindByIpaddr(ipaddr string) (NodeConf, error) {
 }
 
 /*
-// Return just the node list as string slice
-func (config *NodeYaml) NodeList() []string {
-	ret := make([]string, len(config.Nodes))
-	for key := range config.Nodes {
-		ret = append(ret, key)
-	}
-	return ret
-}
+Check if the Netdev is empty, so has no values set
 */
+func ObjectIsEmpty(obj interface{}) bool {
+	if obj == nil {
+		return true
+	}
+	varType := reflect.TypeOf(obj)
+	varVal := reflect.ValueOf(obj)
+	if varType.Kind() == reflect.Ptr && !varVal.IsNil() {
+		return ObjectIsEmpty(varVal.Elem().Interface())
+	}
+	if varVal.IsZero() {
+		return true
+	}
+	for i := 0; i < varType.NumField(); i++ {
+		if varType.Field(i).Type.Kind() == reflect.String && !varVal.Field(i).IsZero() {
+			val := varVal.Field(i).Interface().(string)
+			if val != "" {
+				return false
+			}
+		} else if varType.Field(i).Type == reflect.TypeOf(map[string]string{}) {
+			if len(varVal.Field(i).Interface().(map[string]string)) != 0 {
+				return false
+			}
+		} else if varType.Field(i).Type.Kind() == reflect.Ptr {
+			if !ObjectIsEmpty(varVal.Field(i).Interface()) {
+				return false
+			}
+		}
+	}
+	return true
+}

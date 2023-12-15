@@ -59,7 +59,6 @@ func New(t *testing.T) (env *TestEnv) {
 
 	env.WriteFile(t, path.Join(Sysconfdir, "warewulf/nodes.conf"), initNodesConf)
 	env.WriteFile(t, path.Join(Sysconfdir, "warewulf/warewulf.conf"), initWarewulfConf)
-	env.WriteFile(t, path.Join(Datadir, "warewulf/defaults.conf"), initDefaultsConf)
 
 	// re-read warewulf.conf
 	conf := config.New()
