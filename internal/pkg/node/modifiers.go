@@ -41,12 +41,14 @@ func (config *NodeYaml) DelNode(nodeID string) error {
 Add a node with the given ID and return a pointer to it
 */
 func (config *NodeYaml) AddProfile(profileId string) (*NodeConf, error) {
-	node := NewConf(profileId)
-	wwlog.Verbose("adding new node: %s", profileId)
+	profile := NewConf(profileId)
+	wwlog.Verbose("adding new profile: %s", profileId)
 	if _, ok := config.NodeProfiles[profileId]; ok {
 		return nil, errors.New("profile already exists: " + profileId)
+	} else {
+		config.NodeProfiles[profileId] = &profile
 	}
-	return &node, nil
+	return &profile, nil
 }
 
 /*

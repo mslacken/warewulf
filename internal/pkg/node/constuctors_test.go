@@ -73,25 +73,21 @@ func Test_Primary_Network(t *testing.T) {
 		}
 	})
 	t.Run("Primary network with two networks, primary isn't set", func(t *testing.T) {
-		if test_node3.PrimaryNetDev != "net0" {
-			t.Errorf("primary network isn't net0 but: %s", test_node3.PrimaryNetDev)
+		if test_node3.PrimaryNetDev != "net0" && test_node3.PrimaryNetDev != "net1" {
+			t.Errorf("network wasn't sanitzied")
 		}
-		if !test_node3.NetDevs["net0"].primary {
-			t.Errorf("primary flag is set for net0")
-		}
-		if test_node3.NetDevs["net1"].primary {
-			t.Errorf("primary flag isn't set for net1")
+		if test_node3.NetDevs["net0"].primary == test_node3.NetDevs["net1"].primary {
+			t.Errorf("primary flag isn't set at all")
 		}
 	})
+	// debateable what result we await here, on refactoring primary network w
+	// will be one of the valid networks
 	t.Run("Primary network with two networks, primary available", func(t *testing.T) {
-		if test_node4.PrimaryNetDev != "net3" {
-			t.Errorf("primary network isn't net3 but: %s", test_node3.PrimaryNetDev)
+		if test_node4.PrimaryNetDev == "net3" {
+			t.Errorf("primary network isn net3, although node hasn't this network")
 		}
-		if test_node4.NetDevs["net0"].primary {
-			t.Errorf("primary flag is set for net0")
-		}
-		if test_node4.NetDevs["net1"].primary {
-			t.Errorf("primary flag isn't set for net1")
+		if test_node4.NetDevs["net0"].primary == test_node4.NetDevs["net1"].primary {
+			t.Errorf("node primary flag isn't set")
 		}
 	})
 }

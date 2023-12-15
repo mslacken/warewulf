@@ -51,9 +51,6 @@ func CobraRunE(vars *variables) func(cmd *cobra.Command, args []string) (err err
 			return fmt.Errorf("partition and disk must be specified")
 		}
 		delete(vars.profileConf.Disks, "UNDEF")
-		if len(vars.profileConf.Profiles) == 0 {
-			vars.profileConf.Profiles = []string{"default"}
-		}
 		buffer, err := yaml.Marshal(vars.profileConf)
 		if err != nil {
 			wwlog.Error("Can't marshall nodeInfo", err)

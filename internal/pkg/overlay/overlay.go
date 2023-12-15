@@ -126,7 +126,7 @@ func BuildOverlay(nodeConf node.NodeConf, context string, overlayNames []string)
 		return nil
 	}
 	// create the dir where the overlay images will reside
-	name := fmt.Sprintf("overlay %s/%v", nodeConf, overlayNames)
+	name := fmt.Sprintf("overlay %s/%v", nodeConf.Id(), overlayNames)
 	overlayImage := OverlayImage(nodeConf.Id(), context, overlayNames)
 	overlayImageDir := path.Dir(overlayImage)
 

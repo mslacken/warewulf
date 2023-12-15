@@ -6,7 +6,6 @@ import (
 
 	"github.com/hpcng/warewulf/internal/pkg/api/routes/wwapiv1"
 	"github.com/hpcng/warewulf/internal/pkg/node"
-	"github.com/hpcng/warewulf/internal/pkg/wwlog"
 )
 
 /*
@@ -16,13 +15,10 @@ func ProfileList(ShowOpt *wwapiv1.GetProfileList) (profileList wwapiv1.ProfileLi
 	profileList.Output = []string{}
 	nodeDB, err := node.New()
 	if err != nil {
-		wwlog.Error("Could not open node configuration: %s", err)
 		return
 	}
-
 	profiles, err := nodeDB.FindAllProfiles()
 	if err != nil {
-		wwlog.Error("Could not find all profiles: %s", err)
 		return
 	}
 	profiles = node.FilterByName(profiles, ShowOpt.Profiles)
@@ -45,7 +41,7 @@ func ProfileList(ShowOpt *wwapiv1.GetProfileList) (profileList wwapiv1.ProfileLi
 
 		for _, profile := range profiles {
 			profileList.Output = append(profileList.Output,
-				fmt.Sprintf("%s=%s", profile.Id(), profile.Comment))
+				fmt.Sprintf("%s=%s", profile.Id(), node.PrintVal(profile.Comment)))
 		}
 	}
 	return

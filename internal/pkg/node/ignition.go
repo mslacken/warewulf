@@ -3,6 +3,7 @@ package node
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	types_3_4 "github.com/coreos/ignition/v2/config/v3_2/types"
 	"github.com/coreos/vcontext/path"
@@ -55,9 +56,16 @@ func (node *NodeConf) GetStorage() (stor types_3_4.Storage, err error, rep strin
 			shouldExist := part.ShouldExist
 			wipe := part.WipePartitionEntry
 			label := partlabel
+			var number int
+			if part.Number != "" {
+				number, err = strconv.Atoi(part.Number)
+				if err != nil {
+					return
+				}
+			}
 			myPart := types_3_4.Partition{
 				Label:              &label,
-				Number:             part.Number,
+				Number:             number,
 				ShouldExist:        &shouldExist,
 				WipePartitionEntry: &wipe,
 			}
@@ -67,11 +75,21 @@ func (node *NodeConf) GetStorage() (stor types_3_4.Storage, err error, rep strin
 			if part.Resize {
 				myPart.Resize = &resize
 			}
-			if part.SizeMiB != -1 {
-				myPart.SizeMiB = &part.SizeMiB
+			if part.SizeMiB != "" {
+				var size int
+				size, err = strconv.Atoi(part.SizeMiB)
+				if err != nil {
+					return
+				}
+				myPart.SizeMiB = &size
 			}
-			if part.StartMiB != -1 {
-				myPart.StartMiB = &part.StartMiB
+			if part.StartMiB != "" {
+				var start int
+				start, err = strconv.Atoi(part.SizeMiB)
+				if err != nil {
+					return
+				}
+				myPart.StartMiB = &start
 			}
 			if part.TypeGuid != "" {
 				myPart.TypeGUID = &part.TypeGuid

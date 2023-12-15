@@ -1,8 +1,5 @@
 package node
 
-// string which is printed if no value is set
-const NoValue = "--"
-
 /******
  * YAML data representations
  ******/
@@ -37,7 +34,7 @@ type NodeConf struct {
 	Discoverable   bool                   `yaml:"discoverable,omitempty" lopt:"discoverable" sopt:"e" comment:"Make discoverable in given network (true/false)"`
 	Profiles       []string               `yaml:"profiles,omitempty" lopt:"profile" sopt:"P" comment:"Set the node's profile members (comma separated)"`
 	NetDevs        map[string]*NetDevs    `yaml:"network devices,omitempty"`
-	Tags           map[string]string      `yaml:"tags,omitempty"` // Reverse compatibility
+	Tags           map[string]string      `yaml:"tags,omitempty"`
 	PrimaryNetDev  string                 `yaml:"primary network,omitempty" lopt:"primarynet" sopt:"p" comment:"Set the primary network interface"`
 	Disks          map[string]*Disk       `yaml:"disks,omitempty"`
 	FileSystems    map[string]*FileSystem `yaml:"filesystems,omitempty"`
@@ -90,9 +87,9 @@ partition definition, the label must be uniq so its used as the key in the
 Partitions map
 */
 type Partition struct {
-	Number             int    `yaml:"number,omitempty" lopt:"partnumber" comment:"set the partition number, if not set next free slot is used"`
-	SizeMiB            int    `yaml:"size_mib,omitempty" lopt:"partsize" comment:"set the size of the partition, if not set maximal possible size is used"`
-	StartMiB           int    `yaml:"start_mib,omitempty" comment:"the start of the partition"`
+	Number             string `yaml:"number,omitempty" lopt:"partnumber" comment:"set the partition number, if not set next free slot is used" type:"uint"`
+	SizeMiB            string `yaml:"size_mib,omitempty" lopt:"partsize " comment:"set the size of the partition, if not set maximal possible size is used"  type:"uint"`
+	StartMiB           string `yaml:"start_mib,omitempty" comment:"the start of the partition" type:"uint"`
 	TypeGuid           string `yaml:"type_guid,omitempty" comment:"Linux filesystem data will be used if empty"`
 	Guid               string `yaml:"guid,omitempty" comment:"the GPT unique partition GUID"`
 	WipePartitionEntry bool   `yaml:"wipe_partition_entry,omitempty" comment:"if true, Ignition will clobber an existing partition if it does not match the config"`

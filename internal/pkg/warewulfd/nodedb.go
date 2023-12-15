@@ -95,11 +95,15 @@ func getNodeOrSetDiscoverable(hwaddr string) (node.NodeConf, error) {
 
 	wwlog.WarnExc(err, "%s (node not configured)", hwaddr)
 
-	discoverdNode, netdev, err := db.yml.FindDiscoverableNode()
+	nodeId, netdev, err := db.yml.FindDiscoverableNode()
 	if err != nil {
 		// NOTE: this is taken as there is no discoverable node, so return the
 		// empty one
 		return n, nil
+	}
+	discoverdNode, err := getNode(nodeId)
+	if err != nil {
+		return n, err
 	}
 	// update data on disk and in memory
 	discoverdNode.NetDevs[netdev].Hwaddr = hwaddr

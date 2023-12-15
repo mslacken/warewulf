@@ -1,7 +1,7 @@
 package warewulfd
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -63,7 +63,7 @@ nodes:
 			res := w.Result()
 			defer res.Body.Close()
 
-			data, readErr := ioutil.ReadAll(res.Body)
+			data, readErr := io.ReadAll(res.Body)
 			assert.NoError(t, readErr)
 			assert.Equal(t, tt.body, string(data))
 			assert.Equal(t, tt.status, res.StatusCode)

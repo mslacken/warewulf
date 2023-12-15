@@ -29,15 +29,18 @@ func (config *NodeYaml) FindByHwaddr(hwa string) (NodeConf, error) {
 Find a node by its ip address
 */
 func (config *NodeYaml) FindByIpaddr(ipaddr string) (NodeConf, error) {
-	if addr := net.ParseIP(ipaddr); addr == nil {
+	addr := net.ParseIP(ipaddr)
+	if addr == nil {
 		return NodeConf{}, errors.New("invalid IP:" + ipaddr)
-	} else {
-		ipaddr = addr.String()
 	}
-	nodeList, _ := config.FindAllNodes()
+	nodeList, err := config.FindAllNodes()
+	if err != nil {
+		return NodeConf{}, err
+	}
 	for _, node := range nodeList {
 		for _, dev := range node.NetDevs {
-			if dev.Ipaddr == ipaddr {
+			devaddr := net.ParseIP(dev.Ipaddr)
+			if devaddr.Equal(addr) {
 				return node, nil
 			}
 		}
@@ -46,6 +49,7 @@ func (config *NodeYaml) FindByIpaddr(ipaddr string) (NodeConf, error) {
 	return NodeConf{}, ErrNotFound
 }
 
+/*
 // Return just the node list as string slice
 func (config *NodeYaml) NodeList() []string {
 	ret := make([]string, len(config.Nodes))
@@ -54,3 +58,4 @@ func (config *NodeYaml) NodeList() []string {
 	}
 	return ret
 }
+*/

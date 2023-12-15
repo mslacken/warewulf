@@ -23,7 +23,7 @@ func ProfileAdd(nsp *wwapiv1.NodeAddParameter) error {
 	}
 	for _, p := range nsp.NodeNames {
 		if util.InSlice(nodeDB.ListAllProfiles(), p) {
-			return errors.New(fmt.Sprintf("profile with name %s already exists", nsp.NodeNames[0]))
+			return errors.New(fmt.Sprintf("profile with name %s already exists", p))
 		}
 		pNew, err := nodeDB.AddProfile(p)
 		if err != nil {
@@ -33,10 +33,10 @@ func ProfileAdd(nsp *wwapiv1.NodeAddParameter) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to add profile")
 		}
-		err = nodeDB.Persist()
-		if err != nil {
-			return errors.Wrap(err, "failed to persist new profile")
-		}
+	}
+	err = nodeDB.Persist()
+	if err != nil {
+		return errors.Wrap(err, "failed to persist new profile")
 	}
 	return nil
 }

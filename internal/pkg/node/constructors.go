@@ -81,10 +81,11 @@ func (config *NodeYaml) GetNode(id string) (node NodeConf, err error) {
 	if _, ok := config.Nodes[id]; !ok {
 		return node, ErrNotFound
 	}
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	dec := gob.NewDecoder(&buf)
+	wwlog.Debug("constructing node: %s", id)
 	for _, p := range config.Nodes[id].Profiles {
+		var buf bytes.Buffer
+		enc := gob.NewEncoder(&buf)
+		dec := gob.NewDecoder(&buf)
 		includedProfile, err := config.GetProfile(p)
 		if err != nil {
 			return node, err
@@ -98,6 +99,9 @@ func (config *NodeYaml) GetNode(id string) (node NodeConf, err error) {
 			return node, err
 		}
 	}
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	dec := gob.NewDecoder(&buf)
 	err = enc.Encode(config.Nodes[id])
 	if err != nil {
 		return node, err
@@ -108,6 +112,16 @@ func (config *NodeYaml) GetNode(id string) (node NodeConf, err error) {
 	}
 	// finally set no exported values
 	node.id = id
+	if netdev, ok := node.NetDevs[node.PrimaryNetDev]; ok {
+		netdev.primary = true
+	} else {
+		for netName, netdev := range node.NetDevs {
+			wwlog.Debug("%s: no primary defined, sanitazing to: %s", id, netName)
+			netdev.primary = true
+			node.PrimaryNetDev = netName
+			break
+		}
+	}
 	return
 }
 
@@ -121,20 +135,6 @@ func (config *NodeYaml) GetProfile(id string) (profile NodeConf, err error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	dec := gob.NewDecoder(&buf)
-	for _, p := range config.NodeProfiles[id].Profiles {
-		includedProfile, err := config.GetProfile(p)
-		if err != nil {
-			return profile, err
-		}
-		err = enc.Encode(includedProfile)
-		if err != nil {
-			return profile, err
-		}
-		err = dec.Decode(&profile)
-		if err != nil {
-			return profile, err
-		}
-	}
 	// finally merge in the real profile
 	err = enc.Encode(config.NodeProfiles[id])
 	if err != nil {
@@ -146,7 +146,6 @@ func (config *NodeYaml) GetProfile(id string) (profile NodeConf, err error) {
 	}
 	// finally set no exported values
 	profile.id = id
-	profile.valid = true
 	return
 }
 
@@ -216,7 +215,7 @@ func (config *NodeYaml) FindAllProfiles(profiles ...string) (profileList []NodeC
 Return the names of all available nodes
 */
 func (config *NodeYaml) ListAllNodes() []string {
-	var nodeList []string
+	nodeList := make([]string, len(config.Nodes))
 	for name := range config.Nodes {
 		nodeList = append(nodeList, name)
 	}
@@ -242,7 +241,7 @@ without a hardware address is returned.
 
 If no unconfigured node is found, an error is returned.
 */
-func (config *NodeYaml) FindDiscoverableNode() (NodeConf, string, error) {
+func (config *NodeYaml) FindDiscoverableNode() (string, string, error) {
 
 	nodes, _ := config.FindAllNodes()
 
@@ -251,14 +250,14 @@ func (config *NodeYaml) FindDiscoverableNode() (NodeConf, string, error) {
 			continue
 		}
 		if _, ok := node.NetDevs[node.PrimaryNetDev]; ok {
-			return node, node.PrimaryNetDev, nil
+			return node.Id(), node.PrimaryNetDev, nil
 		}
 		for netdev, dev := range node.NetDevs {
 			if dev.Hwaddr != "" {
-				return node, netdev, nil
+				return node.Id(), netdev, nil
 			}
 		}
 	}
 
-	return NodeConf{}, "", ErrNoUnconfigured
+	return "", "", ErrNoUnconfigured
 }

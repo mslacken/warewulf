@@ -14,8 +14,7 @@ type NodeFields struct {
 }
 
 /*
-Get all the info out of NodeConf. If emptyFields is set true, all fields
-are shown not only the ones with effective values
+Get all the info out of NodeConf. If emptyFields is set true, all fields are shown not only the ones with effective values
 */
 func (nodeYml *NodeYaml) GetFields(node NodeConf, emptyFields bool) (output []NodeFields) {
 	fieldMap := make(map[string]NodeFields)
