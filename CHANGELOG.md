@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - New `range6 start` and `range6 end` in `warewulf.conf:dhcp`. #2068
 - New `Gateway6` network device field. #2068
 - New `systemd-networkd` overlay. #2068
+- `wwclient.aarch64` overlay always provides an aarch64 wwclient executable.
+- `wwclient.x86_64` overlay always provides an x86_64 wwclient executable.
+- systemd-networkd overlay with IPv6 support
+- `wwctl overlay info` lists the variables used by an overlay template
+- TLS
 
 ### Changed
 
