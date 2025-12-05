@@ -1,6 +1,7 @@
 package wwclient
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -53,7 +54,8 @@ var (
 	WarewulfConfArg string
 
 	// TPM related flags
-	quoteFlag bool
+	quoteFlag       bool
+	uploadQuoteFlag bool
 )
 
 func init() {
@@ -61,9 +63,10 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&DebugFlag, "debug", "d", false, "Run with debugging messages enabled.")
 	rootCmd.PersistentFlags().StringVarP(&PIDFile, "pidfile", "p", "/var/run/wwclient.pid", "PIDFile to use")
 	rootCmd.PersistentFlags().StringVar(&WarewulfConfArg, "warewulfconf", "", "Set the warewulf configuration file")
-	rootCmd.PersistentFlags().StringVar(&WarewulfConfArg, "wwid", "", "Set wwid flag manually")
+	rootCmd.PersistentFlags().StringVar(&wwid, "wwid", "", "Set wwid flag manually")
 
 	rootCmd.PersistentFlags().BoolVar(&quoteFlag, "quote", false, "Extract TPM EK certificate and display as JSON")
+	rootCmd.PersistentFlags().BoolVar(&uploadQuoteFlag, "upload-quote", false, "Upload TPM quote to the server")
 }
 
 // GetRootCommand returns the root cobra.Command for the application.
@@ -350,22 +353,6 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 	// Add a channel to signal main loop to exit gracefully
 	exitChan := make(chan bool, 1)
 
-	go func() {
-		for {
-			sig := <-sigs
-			switch sig {
-			case syscall.SIGHUP:
-				wwlog.Info("received signal: %s", sig)
-				stopTimer.Stop()
-				stopTimer.Reset(0)
-			case syscall.SIGTERM, syscall.SIGINT:
-				wwlog.Info("terminating wwclient, %v", sig)
-				// Signal main loop to exit instead of calling os.Exit(0)
-				exitChan <- true
-				return
-			}
-		}
-	}()
 	var finishedInitialSync bool = false
 	ipaddr := os.Getenv("WW_IPADDR")
 	if ipaddr == "" {
@@ -382,6 +369,63 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 		port = conf.Warewulf.SecurePort
 		scheme = "https"
 	}
+
+	if uploadQuoteFlag {
+		quote, err := getAttestationData(tag, wwid)
+		if err != nil {
+			return fmt.Errorf("failed to get attestation data: %w", err)
+		}
+
+		jsonData, err := json.Marshal(quote)
+		if err != nil {
+			return fmt.Errorf("failed to marshal quote to JSON: %w", err)
+		}
+
+		postURL := &url.URL{
+			Scheme: scheme,
+			Host:   fmt.Sprintf("%s:%d", ipaddr, port),
+			Path:   "tpm/",
+		}
+
+		q := postURL.Query()
+		q.Set("wwid", wwid)
+		postURL.RawQuery = q.Encode()
+
+		req, err := http.NewRequest("POST", postURL.String(), bytes.NewBuffer(jsonData))
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := webclient.Do(req)
+		if err != nil {
+			return fmt.Errorf("failed to upload quote: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to upload quote: server returned %s", resp.Status)
+		}
+
+		fmt.Println("TPM quote uploaded successfully")
+		return nil
+	}
+	go func() {
+		for {
+			sig := <-sigs
+			switch sig {
+			case syscall.SIGHUP:
+				wwlog.Info("received signal: %s", sig)
+				stopTimer.Stop()
+				stopTimer.Reset(0)
+			case syscall.SIGTERM, syscall.SIGINT:
+				wwlog.Info("terminating wwclient, %v", sig)
+				// Signal main loop to exit instead of calling os.Exit(0)
+				exitChan <- true
+				return
+			}
+		}
+	}()
 
 	for {
 		updateSystem(target, ipaddr, port, wwid, tag, localUUID, scheme)
