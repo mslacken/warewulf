@@ -1,6 +1,7 @@
 package wwclient
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -53,7 +54,8 @@ var (
 	WarewulfConfArg string
 
 	// TPM related flags
-	quoteFlag bool
+	quoteFlag       bool
+	uploadQuoteFlag bool
 )
 
 func init() {
@@ -64,6 +66,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&WarewulfConfArg, "wwid", "", "Set wwid flag manually")
 
 	rootCmd.PersistentFlags().BoolVar(&quoteFlag, "quote", false, "Extract TPM EK certificate and display as JSON")
+	rootCmd.PersistentFlags().BoolVar(&uploadQuoteFlag, "upload-quote", false, "Upload TPM quote to the server")
 }
 
 // GetRootCommand returns the root cobra.Command for the application.
@@ -381,6 +384,43 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 	if conf.Warewulf.EnableTLS() {
 		port = conf.Warewulf.SecurePort
 		scheme = "https"
+	}
+
+	if uploadQuoteFlag {
+		quote, err := getAttestationData(tag, wwid)
+		if err != nil {
+			return fmt.Errorf("failed to get attestation data: %w", err)
+		}
+
+		jsonData, err := json.Marshal(quote)
+		if err != nil {
+			return fmt.Errorf("failed to marshal quote to JSON: %w", err)
+		}
+
+		postURL := &url.URL{
+			Scheme: scheme,
+			Host:   fmt.Sprintf("%s:%d", ipaddr, port),
+			Path:   "tpm/",
+		}
+
+		req, err := http.NewRequest("POST", postURL.String(), bytes.NewBuffer(jsonData))
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := webclient.Do(req)
+		if err != nil {
+			return fmt.Errorf("failed to upload quote: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to upload quote: server returned %s", resp.Status)
+		}
+
+		fmt.Println("TPM quote uploaded successfully")
+		return nil
 	}
 
 	for {

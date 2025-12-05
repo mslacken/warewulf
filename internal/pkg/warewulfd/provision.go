@@ -2,10 +2,13 @@ package warewulfd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/netip"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -18,8 +21,10 @@ import (
 	"github.com/warewulf/warewulf/internal/pkg/kernel"
 	"github.com/warewulf/warewulf/internal/pkg/node"
 	"github.com/warewulf/warewulf/internal/pkg/overlay"
+	"github.com/warewulf/warewulf/internal/pkg/tpm"
 	"github.com/warewulf/warewulf/internal/pkg/util"
 	"github.com/warewulf/warewulf/internal/pkg/wwlog"
+	"gopkg.in/yaml.v3"
 )
 
 type templateVars struct {
@@ -380,4 +385,79 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 		updateStatus(remoteNode.Id(), status_stage, "NOT_FOUND", rinfo.ipaddr)
 	}
 
+}
+
+func TPMReceive(w http.ResponseWriter, req *http.Request) {
+	wwlog.Debug("Requested URL: %s", req.URL.String())
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		wwlog.Error("Failed to read request body: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var newQuote tpm.Quote
+	err = json.Unmarshal(body, &newQuote)
+	if err != nil {
+		wwlog.Error("Failed to unmarshal JSON quote: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	conf := warewulfconf.Get()
+	tpmConfPath := path.Join(conf.Paths.Sysconfdir, "warewulf/tpm.conf")
+	tpmDir := filepath.Dir(tpmConfPath)
+
+	if err := os.MkdirAll(tpmDir, 0755); err != nil {
+		wwlog.Error("Failed to create TPM config directory: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var quotes []tpm.Quote
+	if util.IsFile(tpmConfPath) {
+		data, err := os.ReadFile(tpmConfPath)
+		if err != nil {
+			wwlog.Error("Failed to read TPM config: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		err = yaml.Unmarshal(data, &quotes)
+		if err != nil {
+			wwlog.Error("Failed to unmarshal TPM config: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Update or append
+	updated := false
+	for i, q := range quotes {
+		if q.ID == newQuote.ID {
+			quotes[i] = newQuote
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		quotes = append(quotes, newQuote)
+	}
+
+	out, err := yaml.Marshal(quotes)
+	if err != nil {
+		wwlog.Error("Failed to marshal TPM config: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = os.WriteFile(tpmConfPath, out, 0644)
+	if err != nil {
+		wwlog.Error("Failed to write TPM config: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	wwlog.Info("Stored TPM quote for node %s (%s)", newQuote.Name, newQuote.ID)
+	w.WriteHeader(http.StatusOK)
 }
