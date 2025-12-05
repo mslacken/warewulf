@@ -2,10 +2,13 @@ package warewulfd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/netip"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -16,10 +19,12 @@ import (
 	warewulfconf "github.com/warewulf/warewulf/internal/pkg/config"
 	"github.com/warewulf/warewulf/internal/pkg/image"
 	"github.com/warewulf/warewulf/internal/pkg/kernel"
-	"github.com/warewulf/warewulf/internal/pkg/node"
+	nodedb "github.com/warewulf/warewulf/internal/pkg/node"
 	"github.com/warewulf/warewulf/internal/pkg/overlay"
+	"github.com/warewulf/warewulf/internal/pkg/tpm"
 	"github.com/warewulf/warewulf/internal/pkg/util"
 	"github.com/warewulf/warewulf/internal/pkg/wwlog"
+	"gopkg.in/yaml.v3"
 )
 
 type templateVars struct {
@@ -41,7 +46,7 @@ type templateVars struct {
 	Root          string
 	Https         bool
 	Tags          map[string]string
-	NetDevs       map[string]*node.NetDev
+	NetDevs       map[string]*nodedb.NetDev
 }
 
 func ProvisionSend(w http.ResponseWriter, req *http.Request) {
@@ -81,7 +86,7 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 	var tmpl_data *templateVars
 
 	remoteNode, err := GetNodeOrSetDiscoverable(rinfo.hwaddr, conf.Warewulf.AutobuildOverlays())
-	if err != nil && err != node.ErrNoUnconfigured {
+	if err != nil && err != nodedb.ErrNoUnconfigured {
 		wwlog.ErrorExc(err, "")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
@@ -380,4 +385,96 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 		updateStatus(remoteNode.Id(), status_stage, "NOT_FOUND", rinfo.ipaddr)
 	}
 
+}
+
+func TPMReceive(w http.ResponseWriter, req *http.Request) {
+	wwlog.Debug("Requested URL: %s", req.URL.String())
+
+	wwidRecv := req.URL.Query().Get("wwid")
+	if wwidRecv == "" {
+		wwlog.Error("TPM receive: wwid parameter missing")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Validate node exists
+	nodes, err := nodedb.New()
+	if err != nil {
+		wwlog.Error("Failed to load node configuration: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// Check if the node exists by ID, IP or HW address
+	node, err := nodes.GetNodeOnly(wwidRecv)
+	if err != nil {
+		if node, err = nodes.FindByIpaddr(wwidRecv); err != nil {
+			if node, err = nodes.FindByHwaddr(wwidRecv); err != nil {
+				wwlog.Error("Node not found: %s", wwidRecv)
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+		}
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		wwlog.Error("Failed to read request body: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var newQuote tpm.Quote
+	err = json.Unmarshal(body, &newQuote)
+	if err != nil {
+		wwlog.Error("Failed to unmarshal JSON quote: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	newQuote.ID = wwidRecv
+
+	conf := warewulfconf.Get()
+	tpmConfPath := path.Join(conf.Paths.Sysconfdir, "warewulf/tpm.conf")
+	tpmDir := filepath.Dir(tpmConfPath)
+
+	if err := os.MkdirAll(tpmDir, 0755); err != nil {
+		wwlog.Error("Failed to create TPM config directory: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	quotes := make(map[string]tpm.Quote)
+	if util.IsFile(tpmConfPath) {
+		data, err := os.ReadFile(tpmConfPath)
+		if err != nil {
+			wwlog.Error("Failed to read TPM config: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		err = yaml.Unmarshal(data, &quotes)
+		if err != nil {
+			wwlog.Error("Failed to unmarshal TPM config: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Update or insert
+	quotes[node.GetId()] = newQuote
+
+	out, err := yaml.Marshal(quotes)
+	if err != nil {
+		wwlog.Error("Failed to marshal TPM config: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = os.WriteFile(tpmConfPath, out, 0644)
+	if err != nil {
+		wwlog.Error("Failed to write TPM config: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	wwlog.Info("Stored TPM quote for node %s (%s)", newQuote.Name, newQuote.ID)
+	w.WriteHeader(http.StatusOK)
 }
