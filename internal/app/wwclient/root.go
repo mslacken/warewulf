@@ -54,8 +54,9 @@ var (
 	WarewulfConfArg string
 
 	// TPM related flags
-	quoteFlag       bool
-	uploadQuoteFlag bool
+	quoteFlag        bool
+	uploadQuoteFlag  bool
+	getChallengeFlag bool
 )
 
 func init() {
@@ -67,6 +68,7 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&quoteFlag, "quote", false, "Extract TPM EK certificate and display as JSON")
 	rootCmd.PersistentFlags().BoolVar(&uploadQuoteFlag, "upload-quote", false, "Upload TPM quote to the server")
+	rootCmd.PersistentFlags().BoolVar(&getChallengeFlag, "get-challenge", false, "Retrieve and decrypt TPM challenge from the server")
 }
 
 // GetRootCommand returns the root cobra.Command for the application.
@@ -77,9 +79,7 @@ func GetRootCommand() *cobra.Command {
 
 func getAttestationData(name, id string) (*tpm.Quote, error) {
 	// Open TPM
-	t, err := attest.OpenTPM(&attest.OpenConfig{
-		TPMVersion: attest.TPMVersion20,
-	})
+	t, err := attest.OpenTPM(nil)
 	if err != nil {
 		return nil, fmt.Errorf("opening TPM: %v", err)
 	}
@@ -140,7 +140,7 @@ func getAttestationData(name, id string) (*tpm.Quote, error) {
 	}
 
 	akParams := ak.AttestationParameters()
-	akPubObj, err := attest.ParseAKPublic(attest.TPMVersion20, akParams.Public)
+	akPubObj, err := attest.ParseAKPublic(akParams.Public)
 	if err != nil {
 		return nil, fmt.Errorf("parsing AK public: %v", err)
 	}
@@ -341,19 +341,6 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 		},
 	}
 
-	duration := 300
-	if conf.Warewulf.UpdateInterval > 0 {
-		duration = conf.Warewulf.UpdateInterval
-	}
-	stopTimer := time.NewTimer(time.Duration(duration) * time.Second)
-	// listen on SIGHUP
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT)
-
-	// Add a channel to signal main loop to exit gracefully
-	exitChan := make(chan bool, 1)
-
-	var finishedInitialSync bool = false
 	ipaddr := os.Getenv("WW_IPADDR")
 	if ipaddr == "" {
 		if conf.Ipaddr6 != "" {
@@ -384,7 +371,7 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 		postURL := &url.URL{
 			Scheme: scheme,
 			Host:   fmt.Sprintf("%s:%d", ipaddr, port),
-			Path:   "tpm/",
+			Path:   "tpm-quote/",
 		}
 
 		q := postURL.Query()
@@ -410,6 +397,75 @@ func CobraRunE(cmd *cobra.Command, args []string) (err error) {
 		fmt.Println("TPM quote uploaded successfully")
 		return nil
 	}
+
+	if getChallengeFlag {
+		challengeURL := &url.URL{
+			Scheme: scheme,
+			Host:   fmt.Sprintf("%s:%d", ipaddr, port),
+			Path:   "tpm-challenge",
+		}
+		q := challengeURL.Query()
+		q.Set("wwid", wwid)
+		challengeURL.RawQuery = q.Encode()
+
+		resp, err := webclient.Get(challengeURL.String())
+		if err != nil {
+			return fmt.Errorf("failed to retrieve challenge: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to retrieve challenge: server returned %s", resp.Status)
+		}
+
+		var encryptedCredential attest.EncryptedCredential
+		err = json.NewDecoder(resp.Body).Decode(&encryptedCredential)
+		if err != nil {
+			return fmt.Errorf("failed to decode encrypted credential: %w", err)
+		}
+
+		t, err := attest.OpenTPM(nil)
+		if err != nil {
+			return fmt.Errorf("opening TPM: %v", err)
+		}
+		defer t.Close()
+
+		eks, err := t.EKs()
+		if err != nil {
+			return fmt.Errorf("getting EKs: %v", err)
+		}
+		if len(eks) == 0 {
+			return fmt.Errorf("no EKs found")
+		}
+
+		ak, err := t.NewAK(nil)
+		if err != nil {
+			return fmt.Errorf("creating AK: %v", err)
+		}
+		defer ak.Close(t)
+
+		secret, err := ak.ActivateCredential(t, encryptedCredential)
+		if err != nil {
+			return fmt.Errorf("failed to activate credential: %w", err)
+		}
+
+		fmt.Printf("Decrypted secret: %x\n", secret)
+		return nil
+	}
+	duration := 300
+	if conf.Warewulf.UpdateInterval > 0 {
+		duration = conf.Warewulf.UpdateInterval
+	}
+	stopTimer := time.NewTimer(time.Duration(duration) * time.Second)
+	// listen on SIGHUP
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT)
+
+	// Add a channel to signal main loop to exit gracefully
+	exitChan := make(chan bool, 1)
+
+	var finishedInitialSync bool = false
+
 	go func() {
 		for {
 			sig := <-sigs

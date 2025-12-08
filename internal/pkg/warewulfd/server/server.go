@@ -48,7 +48,8 @@ func configureHandler(includeRuntime bool, apiHandler http.Handler) *slashFix {
 	if includeRuntime {
 		wwHandler.HandleFunc("/overlay-runtime/", warewulfd.ProvisionSend)
 	}
-	wwHandler.HandleFunc("/tpm/", warewulfd.TPMReceive)
+	wwHandler.HandleFunc("/tpm-quote/", warewulfd.TPMReceive)
+	wwHandler.HandleFunc("/tpm-challenge", warewulfd.TPMChallengeSend)
 	wwHandler.HandleFunc("/overlay-file/", warewulfd.OverlaySend)
 	wwHandler.HandleFunc("/status", warewulfd.StatusSend)
 
