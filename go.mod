@@ -1,8 +1,6 @@
 module github.com/warewulf/warewulf
 
-go 1.22.0
-
-toolchain go1.22.9
+go 1.24.0
 
 require (
 	dario.cat/mergo v1.0.1
@@ -18,9 +16,7 @@ require (
 	github.com/creasty/defaults v1.8.0
 	github.com/fatih/color v1.18.0
 	github.com/go-chi/chi/v5 v5.2.1
-	github.com/google/go-attestation v0.4.4-0.20230613144338-a9b6eb1eb888
-	github.com/google/go-tpm v0.9.7
-	github.com/google/go-tpm-tools v0.3.13-0.20230620182252-4639ecce2aba
+	github.com/google/go-attestation v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1
 	github.com/hashicorp/go-version v1.7.0
@@ -38,10 +34,10 @@ require (
 	github.com/swaggest/swgui v1.8.2
 	github.com/swaggest/usecase v1.3.1
 	github.com/talos-systems/go-smbios v0.1.1
-	golang.org/x/crypto v0.32.0
+	golang.org/x/crypto v0.35.0
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
-	golang.org/x/sys v0.29.0
-	golang.org/x/term v0.28.0
+	golang.org/x/sys v0.37.0
+	golang.org/x/term v0.29.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250204164813-702378808489
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.5
@@ -91,11 +87,8 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/certificate-transparency-go v1.1.8 // indirect
 	github.com/google/go-containerregistry v0.20.1 // indirect
-	github.com/google/go-sev-guest v0.6.1 // indirect
-	github.com/google/go-tspi v0.3.0 // indirect
-	github.com/google/logger v1.1.1 // indirect
+	github.com/google/go-tpm v0.9.7 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -123,7 +116,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runc v1.1.14 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
-	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/proglottis/gpgme v0.1.3 // indirect
 	github.com/prometheus/client_golang v1.20.2 // indirect

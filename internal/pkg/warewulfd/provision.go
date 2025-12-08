@@ -2,6 +2,8 @@ package warewulfd
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"github.com/google/go-attestation/attest"
 	warewulfconf "github.com/warewulf/warewulf/internal/pkg/config"
 	"github.com/warewulf/warewulf/internal/pkg/image"
 	"github.com/warewulf/warewulf/internal/pkg/kernel"
@@ -442,7 +445,11 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	quotes := make(map[string]tpm.Quote)
+	tpmConfig := tpm.TPMConfig{
+		Quotes:    make(map[string]tpm.Quote),
+		Challenges: make(map[string]tpm.Challenge),
+	}
+
 	if util.IsFile(tpmConfPath) {
 		data, err := os.ReadFile(tpmConfPath)
 		if err != nil {
@@ -450,7 +457,7 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		err = yaml.Unmarshal(data, &quotes)
+		err = yaml.Unmarshal(data, &tpmConfig)
 		if err != nil {
 			wwlog.Error("Failed to unmarshal TPM config: %s", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -458,10 +465,10 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// Update or insert
-	quotes[node.GetId()] = newQuote
+	// Update or insert quote
+	tpmConfig.Quotes[node.GetId()] = newQuote
 
-	out, err := yaml.Marshal(quotes)
+	out, err := yaml.Marshal(tpmConfig)
 	if err != nil {
 		wwlog.Error("Failed to marshal TPM config: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -478,3 +485,140 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 	wwlog.Info("Stored TPM quote for node %s (%s)", newQuote.Name, newQuote.ID)
 	w.WriteHeader(http.StatusOK)
 }
+
+func TPMChallengeSend(w http.ResponseWriter, req *http.Request) {
+	wwlog.Debug("Requested URL: %s", req.URL.String())
+
+	wwidRecv := req.URL.Query().Get("wwid")
+	if wwidRecv == "" {
+		wwlog.Error("TPM challenge send: wwid parameter missing")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	nodes, err := nodedb.New()
+	if err != nil {
+		wwlog.Error("Failed to load node configuration: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	node, err := nodes.GetNodeOnly(wwidRecv)
+	if err != nil {
+		if node, err = nodes.FindByIpaddr(wwidRecv); err != nil {
+			if node, err = nodes.FindByHwaddr(wwidRecv); err != nil {
+				wwlog.Error("Node not found: %s", wwidRecv)
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+		}
+	}
+
+	conf := warewulfconf.Get()
+	tpmConfPath := path.Join(conf.Paths.Sysconfdir, "warewulf/tpm.conf")
+
+	tpmConfig := tpm.TPMConfig{
+		Quotes:    make(map[string]tpm.Quote),
+		Challenges: make(map[string]tpm.Challenge),
+	}
+
+	if util.IsFile(tpmConfPath) {
+		data, err := os.ReadFile(tpmConfPath)
+		if err != nil {
+			wwlog.Error("Failed to read TPM config: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		err = yaml.Unmarshal(data, &tpmConfig)
+		if err != nil {
+			wwlog.Error("Failed to unmarshal TPM config: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	existingQuote, found := tpmConfig.Quotes[node.GetId()]
+	if !found {
+		wwlog.Error("No TPM quote found for node %s", node.GetId())
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	ekPubBytes, err := base64.StdEncoding.DecodeString(existingQuote.EKPub)
+	if err != nil {
+		wwlog.Error("Failed to decode EKPub for node %s: %s", node.GetId(), err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+akPubBytes, err := base64.StdEncoding.DecodeString(existingQuote.AKPub)
+	if err != nil {
+		wwlog.Error("Failed to decode AKPub for node %s: %s", node.GetId(), err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	akPub, err := x509.ParsePKIXPublicKey(akPubBytes)
+	if err != nil {
+		wwlog.Error("Failed to parse AK public key for node %s: %s", node.GetId(), err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	ekPub, err := x509.ParsePKIXPublicKey(ekPubBytes)
+	if err != nil {
+		wwlog.Error("Failed to parse EK public key for node %s: %s", node.GetId(), err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	akPubDER, err := x509.MarshalPKIXPublicKey(akPub)
+	if err != nil {
+		wwlog.Error("Failed to marshal AK public key for node %s: %s", node.GetId(), err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	akAttestParams := attest.AttestationParameters{
+		Public: akPubDER,
+		// Other fields like Name, AttestedCreationInfo would ideally come from the client during AK creation
+	}
+
+	activationParams := attest.ActivationParameters{
+		EK: ekPub,
+		AK: akAttestParams,
+	}
+
+	secret, encryptedCredential, err := activationParams.Generate()
+	if err != nil {
+		wwlog.Error("Error generating Credential Activation Challenge for node %s: %s", node.GetId(), err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	newChallenge := tpm.Challenge{
+		EncryptedCredential: *encryptedCredential,
+		Secret:              secret,
+		ID:                  node.GetId(),
+	}
+	tpmConfig.Challenges[node.GetId()] = newChallenge
+
+	out, err := yaml.Marshal(tpmConfig)
+	if err != nil {
+		wwlog.Error("Failed to marshal TPM config with challenge: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = os.WriteFile(tpmConfPath, out, 0644)
+	if err != nil {
+		wwlog.Error("Failed to write TPM config with challenge: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(newChallenge.EncryptedCredential)
+
+	wwlog.Info("Sent TPM challenge for node %s", node.GetId())
+}
+
