@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/google/go-attestation/attest"
@@ -27,7 +28,6 @@ import (
 	"github.com/warewulf/warewulf/internal/pkg/tpm"
 	"github.com/warewulf/warewulf/internal/pkg/util"
 	"github.com/warewulf/warewulf/internal/pkg/wwlog"
-	"gopkg.in/yaml.v3"
 )
 
 type templateVars struct {
@@ -434,55 +434,33 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	newQuote.ID = wwidRecv
+	newQuote.Modified = time.Now()
 
 	conf := warewulfconf.Get()
-	tpmConfPath := path.Join(conf.Paths.Sysconfdir, "warewulf/tpm.conf")
-	tpmDir := filepath.Dir(tpmConfPath)
+	tpmDir := filepath.Join(conf.Paths.OverlayProvisiondir(), node.GetId())
 
 	if err := os.MkdirAll(tpmDir, 0755); err != nil {
-		wwlog.Error("Failed to create TPM config directory: %s", err)
+		wwlog.Error("Failed to create TPM directory: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	tpmConfig := tpm.TPMConfig{
-		Quotes:    make(map[string]tpm.Quote),
-		Challenges: make(map[string]tpm.Challenge),
-	}
-
-	if util.IsFile(tpmConfPath) {
-		data, err := os.ReadFile(tpmConfPath)
-		if err != nil {
-			wwlog.Error("Failed to read TPM config: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		err = yaml.Unmarshal(data, &tpmConfig)
-		if err != nil {
-			wwlog.Error("Failed to unmarshal TPM config: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// Update or insert quote
-	tpmConfig.Quotes[node.GetId()] = newQuote
-
-	out, err := yaml.Marshal(tpmConfig)
+	out, err := json.MarshalIndent(newQuote, "", "  ")
 	if err != nil {
-		wwlog.Error("Failed to marshal TPM config: %s", err)
+		wwlog.Error("Failed to marshal TPM quote: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	err = os.WriteFile(tpmConfPath, out, 0644)
+	tpmPath := filepath.Join(tpmDir, "tpm.json")
+	err = os.WriteFile(tpmPath, out, 0644)
 	if err != nil {
-		wwlog.Error("Failed to write TPM config: %s", err)
+		wwlog.Error("Failed to write TPM quote: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	wwlog.Info("Stored TPM quote for node %s (%s)", newQuote.Name, newQuote.ID)
+	wwlog.Info("Stored TPM quote for node %s", newQuote.ID)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -514,32 +492,26 @@ func TPMChallengeSend(w http.ResponseWriter, req *http.Request) {
 	}
 
 	conf := warewulfconf.Get()
-	tpmConfPath := path.Join(conf.Paths.Sysconfdir, "warewulf/tpm.conf")
+	tpmPath := filepath.Join(conf.Paths.OverlayProvisiondir(), node.GetId(), "tpm.json")
 
-	tpmConfig := tpm.TPMConfig{
-		Quotes:    make(map[string]tpm.Quote),
-		Challenges: make(map[string]tpm.Challenge),
-	}
-
-	if util.IsFile(tpmConfPath) {
-		data, err := os.ReadFile(tpmConfPath)
-		if err != nil {
-			wwlog.Error("Failed to read TPM config: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		err = yaml.Unmarshal(data, &tpmConfig)
-		if err != nil {
-			wwlog.Error("Failed to unmarshal TPM config: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	}
-
-	existingQuote, found := tpmConfig.Quotes[node.GetId()]
-	if !found {
+	if !util.IsFile(tpmPath) {
 		wwlog.Error("No TPM quote found for node %s", node.GetId())
 		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	data, err := os.ReadFile(tpmPath)
+	if err != nil {
+		wwlog.Error("Failed to read TPM quote: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var existingQuote tpm.Quote
+	err = json.Unmarshal(data, &existingQuote)
+	if err != nil {
+		wwlog.Error("Failed to unmarshal TPM quote: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -600,18 +572,18 @@ akPubBytes, err := base64.StdEncoding.DecodeString(existingQuote.AKPub)
 		Secret:              secret,
 		ID:                  node.GetId(),
 	}
-	tpmConfig.Challenges[node.GetId()] = newChallenge
 
-	out, err := yaml.Marshal(tpmConfig)
+	out, err := json.MarshalIndent(newChallenge, "", "  ")
 	if err != nil {
-		wwlog.Error("Failed to marshal TPM config with challenge: %s", err)
+		wwlog.Error("Failed to marshal TPM challenge: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	err = os.WriteFile(tpmConfPath, out, 0644)
+	challengePath := filepath.Join(conf.Paths.OverlayProvisiondir(), node.GetId(), "tpm_challenge.json")
+	err = os.WriteFile(challengePath, out, 0644)
 	if err != nil {
-		wwlog.Error("Failed to write TPM config with challenge: %s", err)
+		wwlog.Error("Failed to write TPM challenge: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
