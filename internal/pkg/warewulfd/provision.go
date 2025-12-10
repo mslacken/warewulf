@@ -2,6 +2,7 @@ package warewulfd
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -313,6 +314,7 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 	wwlog.Serv("stage_file '%s'", stage_file)
 
 	if util.IsFile(stage_file) {
+		var contentBytes []byte
 
 		if tmpl_data != nil {
 			if rinfo.compress != "" {
@@ -345,6 +347,7 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 
 			w.Header().Set("Content-Type", "text")
 			w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+			contentBytes = buf.Bytes()
 			_, err = buf.WriteTo(w)
 			if err != nil {
 				wwlog.ErrorExc(err, "")
@@ -368,11 +371,29 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			}
 
+			// Read file content for checksum
+			fileBytes, err := os.ReadFile(stage_file)
+			if err != nil {
+				wwlog.ErrorExc(err, "")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			contentBytes = fileBytes
+
 			err = sendFile(w, req, stage_file, remoteNode.Id())
 			if err != nil {
 				wwlog.ErrorExc(err, "")
 				return
 			}
+		}
+
+		// Calculate checksum and update TPM log
+		sum := sha256.Sum256(contentBytes)
+		checksum := fmt.Sprintf("%x", sum)
+
+		err = updateTPMLogs(remoteNode.Id(), stage_file, stage_file, checksum)
+		if err != nil {
+			wwlog.Error("Failed to update TPM logs: %v", err)
 		}
 
 		updateStatus(remoteNode.Id(), status_stage, path.Base(stage_file), rinfo.ipaddr)
@@ -438,11 +459,16 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 
 	conf := warewulfconf.Get()
 	tpmDir := filepath.Join(conf.Paths.OverlayProvisiondir(), node.GetId())
+	tpmPath := filepath.Join(tpmDir, "tpm.json")
 
-	if err := os.MkdirAll(tpmDir, 0755); err != nil {
-		wwlog.Error("Failed to create TPM directory: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	if util.IsFile(tpmPath) {
+		data, err := os.ReadFile(tpmPath)
+		if err == nil {
+			var existingQuote tpm.Quote
+			if err := json.Unmarshal(data, &existingQuote); err == nil {
+				newQuote.Logs = existingQuote.Logs
+			}
+		}
 	}
 
 	out, err := json.MarshalIndent(newQuote, "", "  ")
@@ -452,7 +478,6 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tpmPath := filepath.Join(tpmDir, "tpm.json")
 	err = os.WriteFile(tpmPath, out, 0644)
 	if err != nil {
 		wwlog.Error("Failed to write TPM quote: %s", err)
@@ -522,7 +547,7 @@ func TPMChallengeSend(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-akPubBytes, err := base64.StdEncoding.DecodeString(existingQuote.AKPub)
+	akPubBytes, err := base64.StdEncoding.DecodeString(existingQuote.AKPub)
 	if err != nil {
 		wwlog.Error("Failed to decode AKPub for node %s: %s", node.GetId(), err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -594,3 +619,48 @@ akPubBytes, err := base64.StdEncoding.DecodeString(existingQuote.AKPub)
 	wwlog.Info("Sent TPM challenge for node %s", node.GetId())
 }
 
+func updateTPMLogs(nodeId, filename, source, checksum string) error {
+	conf := warewulfconf.Get()
+	tpmPath := filepath.Join(conf.Paths.OverlayProvisiondir(), nodeId, "tpm.json")
+
+	if !util.IsFile(tpmPath) {
+		return nil
+	}
+
+	data, err := os.ReadFile(tpmPath)
+	if err != nil {
+		return err
+	}
+
+	var quote tpm.Quote
+	err = json.Unmarshal(data, &quote)
+	if err != nil {
+		return err
+	}
+
+	// Check if log entry already exists
+	found := false
+	for i, log := range quote.Logs {
+		if log.Filename == filename {
+			quote.Logs[i].Checksum = checksum
+			quote.Logs[i].Source = source
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		quote.Logs = append(quote.Logs, tpm.FileLog{
+			Filename: filename,
+			Source:   source,
+			Checksum: checksum,
+		})
+	}
+
+	out, err := json.MarshalIndent(quote, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(tpmPath, out, 0644)
+}
