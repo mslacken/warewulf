@@ -105,6 +105,8 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 		updateStatus(remoteNode.Id(), status_stage, "BAD_ASSET", rinfo.ipaddr)
 		return
 	}
+	// store what we have sent out
+	tpmStore := NewTPMLogStore(remoteNode.Id())
 
 	if !remoteNode.Valid() {
 		wwlog.Error("%s (unknown/unconfigured node)", rinfo.hwaddr)
@@ -225,6 +227,14 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 		case "grub.cfg":
+			// this is the first stage fot the node in the boot process where the
+			// host is involved, so we reset the SentLog and *prepend* is with the
+			// grub.cfg which was sent out via tftp, so clear the logs and add as
+			// first entry the grub.cfg we sent out via tftp
+			tpmStore.ClearLogs()
+			if err = tpmStore.Update(path.Join(conf.TFTP.TftpRoot, "warewulf/grub.cfg"), ""); err != nil {
+				wwlog.Warn("couldn't update TPM log with grub.cfg sent by tftp", err)
+			}
 			stage_file = path.Join(conf.Paths.Sysconfdir, "warewulf/grub/grub.cfg.ww")
 			kernelArgs := ""
 			kernelVersion := ""
@@ -400,8 +410,7 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		// Calculate checksum and update TPM log
-		err = updateTPMLogs(remoteNode.Id(), logFilename, checksum)
+		err = tpmStore.Update(logFilename, checksum)
 		if err != nil {
 			wwlog.Error("Failed to update TPM logs: %v", err)
 		}
@@ -476,7 +485,7 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 		if err == nil {
 			var existingQuote tpm.Quote
 			if err := json.Unmarshal(data, &existingQuote); err == nil {
-				newQuote.Logs = existingQuote.Logs
+				newQuote.SentLog = existingQuote.SentLog
 			}
 		}
 	}
@@ -629,56 +638,70 @@ func TPMChallengeSend(w http.ResponseWriter, req *http.Request) {
 	wwlog.Info("Sent TPM challenge for node %s", node.GetId())
 }
 
-func updateTPMLogs(nodeId, filename, checksum string) error {
-	conf := warewulfconf.Get()
-	tpmPath := filepath.Join(conf.Paths.OverlayProvisiondir(), nodeId, "tpm.json")
+type TPMLogStore struct {
+	path string
+}
 
-	if !util.IsFile(tpmPath) {
+func NewTPMLogStore(nodeId string) *TPMLogStore {
+	conf := warewulfconf.Get()
+	return &TPMLogStore{
+		path: filepath.Join(conf.Paths.OverlayProvisiondir(), nodeId, "tpm.json"),
+	}
+}
+
+func (s *TPMLogStore) SetFilename(filename string) {
+	s.path = filename
+}
+
+func (s *TPMLogStore) ClearLogs() error {
+	if !util.IsFile(s.path) {
 		return nil
 	}
-
-	data, err := os.ReadFile(tpmPath)
+	data, err := os.ReadFile(s.path)
 	if err != nil {
 		return err
 	}
-
 	var quote tpm.Quote
 	err = json.Unmarshal(data, &quote)
 	if err != nil {
 		return err
 	}
+	quote.SentLog = []tpm.FileLog{}
+	out, err := json.MarshalIndent(quote, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.path, out, 0644)
+}
 
-	// Check if log entry already exists
-	found := false
-	if strings.Contains(filename, "grub.cfg.ww") {
-		var newLogs []tpm.FileLog
-		for _, log := range quote.Logs {
-			if !strings.Contains(log.Filename, "grub.cfg.ww") {
-				newLogs = append(newLogs, log)
-			}
+func (s *TPMLogStore) Update(filename, checksum string) error {
+	if checksum == "" {
+		fileBytes, err := os.ReadFile(filename)
+		if err != nil {
+			return fmt.Errorf("couldn't access file for quote: %s", err)
 		}
-		quote.Logs = newLogs
-	} else {
-		for i, log := range quote.Logs {
-			if log.Filename == filename {
-				quote.Logs[i].Checksum = checksum
-				found = true
-				break
-			}
-		}
+		sum := sha256.Sum256(fileBytes)
+		checksum = fmt.Sprintf("%x", sum)
+	}
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		return fmt.Errorf("couldn't access storage for quote: %s", err)
+	}
+	quote := tpm.Quote{}
+	err = json.Unmarshal(data, &quote)
+	if err != nil {
+		return err
 	}
 
-	if !found {
-		quote.Logs = append(quote.Logs, tpm.FileLog{
-			Filename: filename,
-			Checksum: checksum,
-		})
-	}
+	quote.SentLog = append(quote.SentLog, tpm.FileLog{
+		Filename: filename,
+		Checksum: checksum,
+	})
 
 	out, err := json.MarshalIndent(quote, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(tpmPath, out, 0644)
+	return os.WriteFile(s.path, out, 0644)
 }
