@@ -172,7 +172,7 @@ func TestOverlayAPI(t *testing.T) {
 
 			if tt.response != "" {
 				ja := jsonassert.New(t)
-				ja.Assertf(string(body), tt.response) //nolint:govet // tt.response is used as a format string with special tokens
+				ja.Assertf(string(body), "%s", tt.response) // tt.response is used as a format string with special tokens
 			}
 
 			for _, fileName := range tt.resultFiles {
