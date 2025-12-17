@@ -85,6 +85,9 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 
 	status_stage := status_stages[rinfo.stage]
 	var stage_file string
+	var contentBytes []byte
+	var checksum string
+	var logFilename string
 
 	// TODO: when module version is upgraded to go1.18, should be 'any' type
 	var tmpl_data *templateVars
@@ -314,7 +317,6 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 	wwlog.Serv("stage_file '%s'", stage_file)
 
 	if util.IsFile(stage_file) {
-		var contentBytes []byte
 
 		if tmpl_data != nil {
 			if rinfo.compress != "" {
@@ -348,6 +350,14 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 			w.Header().Set("Content-Type", "text")
 			w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
 			contentBytes = buf.Bytes()
+			sum := sha256.Sum256(contentBytes)
+			checksum = fmt.Sprintf("%x", sum)
+
+			logFilename = stage_file
+			if rinfo.stage == "efiboot" && rinfo.efifile == "grub.cfg" {
+				logFilename = checksum + " " + stage_file
+			}
+
 			_, err = buf.WriteTo(w)
 			if err != nil {
 				wwlog.ErrorExc(err, "")
@@ -379,6 +389,9 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			contentBytes = fileBytes
+			sum := sha256.Sum256(contentBytes)
+			checksum = fmt.Sprintf("%x", sum)
+			logFilename = stage_file
 
 			err = sendFile(w, req, stage_file, remoteNode.Id())
 			if err != nil {
@@ -388,10 +401,7 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 		}
 
 		// Calculate checksum and update TPM log
-		sum := sha256.Sum256(contentBytes)
-		checksum := fmt.Sprintf("%x", sum)
-
-		err = updateTPMLogs(remoteNode.Id(), stage_file, stage_file, checksum)
+		err = updateTPMLogs(remoteNode.Id(), logFilename, checksum)
 		if err != nil {
 			wwlog.Error("Failed to update TPM logs: %v", err)
 		}
@@ -619,7 +629,7 @@ func TPMChallengeSend(w http.ResponseWriter, req *http.Request) {
 	wwlog.Info("Sent TPM challenge for node %s", node.GetId())
 }
 
-func updateTPMLogs(nodeId, filename, source, checksum string) error {
+func updateTPMLogs(nodeId, filename, checksum string) error {
 	conf := warewulfconf.Get()
 	tpmPath := filepath.Join(conf.Paths.OverlayProvisiondir(), nodeId, "tpm.json")
 
@@ -640,19 +650,27 @@ func updateTPMLogs(nodeId, filename, source, checksum string) error {
 
 	// Check if log entry already exists
 	found := false
-	for i, log := range quote.Logs {
-		if log.Filename == filename {
-			quote.Logs[i].Checksum = checksum
-			quote.Logs[i].Source = source
-			found = true
-			break
+	if strings.Contains(filename, "grub.cfg.ww") {
+		var newLogs []tpm.FileLog
+		for _, log := range quote.Logs {
+			if !strings.Contains(log.Filename, "grub.cfg.ww") {
+				newLogs = append(newLogs, log)
+			}
+		}
+		quote.Logs = newLogs
+	} else {
+		for i, log := range quote.Logs {
+			if log.Filename == filename {
+				quote.Logs[i].Checksum = checksum
+				found = true
+				break
+			}
 		}
 	}
 
 	if !found {
 		quote.Logs = append(quote.Logs, tpm.FileLog{
 			Filename: filename,
-			Source:   source,
 			Checksum: checksum,
 		})
 	}
