@@ -106,7 +106,12 @@ func ProvisionSend(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// store what we have sent out
-	tpmStore := NewTPMLogStore(remoteNode.Id())
+	tpmStore, err := NewTPMLogStore(remoteNode.Id())
+	if err != nil {
+		wwlog.Error("Could not create TPM log store: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	if !remoteNode.Valid() {
 		wwlog.Error("%s (unknown/unconfigured node)", rinfo.hwaddr)
@@ -476,29 +481,14 @@ func TPMReceive(w http.ResponseWriter, req *http.Request) {
 	newQuote.ID = wwidRecv
 	newQuote.Modified = time.Now()
 
-	conf := warewulfconf.Get()
-	tpmDir := filepath.Join(conf.Paths.OverlayProvisiondir(), node.GetId())
-	tpmPath := filepath.Join(tpmDir, "tpm.json")
-
-	if util.IsFile(tpmPath) {
-		data, err := os.ReadFile(tpmPath)
-		if err == nil {
-			var existingQuote tpm.Quote
-			if err := json.Unmarshal(data, &existingQuote); err == nil {
-				newQuote.SentLog = existingQuote.SentLog
-			}
-		}
-	}
-
-	out, err := json.MarshalIndent(newQuote, "", "  ")
+	tpmStore, err := NewTPMLogStore(node.GetId())
 	if err != nil {
-		wwlog.Error("Failed to marshal TPM quote: %s", err)
+		wwlog.Error("Failed to access TPM store: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	err = os.WriteFile(tpmPath, out, 0644)
-	if err != nil {
+	if err := tpmStore.Save(newQuote); err != nil {
 		wwlog.Error("Failed to write TPM quote: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -642,11 +632,45 @@ type TPMLogStore struct {
 	path string
 }
 
-func NewTPMLogStore(nodeId string) *TPMLogStore {
+func NewTPMLogStore(nodeId string) (*TPMLogStore, error) {
 	conf := warewulfconf.Get()
-	return &TPMLogStore{
-		path: filepath.Join(conf.Paths.OverlayProvisiondir(), nodeId, "tpm.json"),
+	path := filepath.Join(conf.Paths.OverlayProvisiondir(), nodeId, "tpm.json")
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return nil, err
 	}
+
+	if !util.IsFile(path) {
+		out, err := json.MarshalIndent(tpm.Quote{}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(path, out, 0644); err != nil {
+			return nil, err
+		}
+	}
+
+	return &TPMLogStore{
+		path: path,
+	}, nil
+}
+
+func (s *TPMLogStore) Save(newQuote tpm.Quote) error {
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		return fmt.Errorf("couldn't access storage for quote: %s", err)
+	}
+	var existingQuote tpm.Quote
+	if err := json.Unmarshal(data, &existingQuote); err == nil {
+		newQuote.SentLog = existingQuote.SentLog
+	}
+
+	out, err := json.MarshalIndent(newQuote, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(s.path, out, 0644)
 }
 
 func (s *TPMLogStore) SetFilename(filename string) {
@@ -691,6 +715,12 @@ func (s *TPMLogStore) Update(filename, checksum string) error {
 	err = json.Unmarshal(data, &quote)
 	if err != nil {
 		return err
+	}
+
+	for _, entry := range quote.SentLog {
+		if entry.Filename == filename && entry.Checksum == checksum {
+			return nil
+		}
 	}
 
 	quote.SentLog = append(quote.SentLog, tpm.FileLog{
