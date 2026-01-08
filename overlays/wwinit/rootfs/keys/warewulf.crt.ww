@@ -1,4 +1,4 @@
-{{ if .Warewulf.EnableHttps -}} 
+{{ if .Warewulf.EnableTLS -}} 
 {{ Include (printf "%s/%s/%s/%s" .Paths.Sysconfdir "warewulf" "keys" "warewulf.crt" ) }}
 {{ end -}}
 
