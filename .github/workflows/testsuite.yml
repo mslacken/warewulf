@@ -53,3 +53,26 @@ jobs:
         run: make all
       - name: Build the Docker image
         run: docker build . --file Dockerfile
+
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Warewulf
+        uses: actions/checkout@v4
+      - name: Install Lima
+        uses: lima-vm/lima-actions/setup@v1
+      - name: Cache Lima images
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lima
+          key: lima-rocky-10-${{ github.sha }}
+          restore-keys: lima-rocky-10-
+      - name: Start Rocky Linux 10 VM
+        run: limactl start --plain --name=default --cpus=4 --memory=12 template://rocky-10
+      - name: Copy source into VM
+        run: |
+          lima sudo mkdir -p /home/warewulf
+          lima sudo chown "$(lima whoami)" /home/warewulf
+          limactl copy -r . default:/home/warewulf
+      - name: Run integration test
+        run: lima sudo bash -c "cd /home/warewulf; bash scripts/integration-test.sh"
